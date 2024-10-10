@@ -17,7 +17,7 @@ const config = {
   // Set the production URL of your site here
   url: 'https://iliasmavridis.github.io/',
   // Set the /<baseUrl>/ pathname under which your site is served
-  baseUrl: '/test/staging/',
+  baseUrl: '/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
@@ -144,17 +144,7 @@ const config = {
         theme: prismThemes.github,
         darkTheme: prismThemes.dracula,
       },
-      // Announcement bar for the staging environment
-      announcementBar: {
-        id: 'staging-environment', // Unique ID for the announcement
-        content:
-          '⚠️ This is a <strong>Staging Environment</strong>. Changes may not be final. For the latest production version, please visit <a href="https://iliasmavridis.github.io/test/" style="text-decoration: underline; color: inherit;">this link</a>.',
-        backgroundColor: '#ffcc00', // Yellow background to grab attention
-        textColor: '#000000', // Black text for readability
-        isCloseable: false, // Ensure users cannot close the banner
-      },
     }),
-
 };
 
 export default config;

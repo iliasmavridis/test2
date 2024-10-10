@@ -36,6 +36,21 @@ jobs:
         run: |
           echo "Modifying baseUrl for staging environment: ${{ github.event.repository.name }}"
           sed -i 's/baseUrl: '\''\//baseUrl: '\''\/${{ github.event.repository.name }}/' docusaurus.config.js
+          
+          echo "Adding announcement bar for staging environment"
+          sed -i '/module.exports = {/r'<(cat <<EOF
+
+      // Announcement bar for the staging environment
+      announcementBar: {
+        id: 'staging-environment', // Unique ID for the announcement
+        content:
+          '⚠️ This is a <strong>Staging Environment</strong>. Changes may not be final. For the latest production version, please visit <a href="https://iliasmavridis.github.io/test/" style="text-decoration: underline; color: inherit;">this link</a>.',
+        backgroundColor: '#ffcc00', // Yellow background to grab attention
+        textColor: '#000000', // Black text for readability
+        isCloseable: false, // Ensure users cannot close the banner
+      },
+EOF
+) docusaurus.config.js
           npm run build
 
       # Deploy to GitHub Pages
