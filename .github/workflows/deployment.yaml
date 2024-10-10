@@ -30,7 +30,7 @@ jobs:
         run: |
           git fetch origin main
           git checkout main
-          git pull
+          git reset --hard origin/main  # Ensures the latest commit is checked out
           echo "Current branch: $(git branch --show-current)"
           echo "Latest commit: $(git log -1 --oneline)"
 
@@ -95,7 +95,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
-          destination_dir: ${{ steps.build-type.outputs.type == 'production' && '' || format('pr-preview-{0}', github.event.number) }}
+          destination_dir: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}  # Updated condition for production vs. staging
           user_name: 'github-actions[bot]'
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
@@ -112,12 +112,12 @@ jobs:
       - name: Cleanup PR preview
         if: github.event.pull_request.merged == true || github.event.pull_request.state == 'closed'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
           cd gh-pages
           if [ -d "pr-preview-$PR_NUMBER" ]; then
             git rm -rf "pr-preview-$PR_NUMBER"
