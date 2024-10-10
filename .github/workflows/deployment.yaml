@@ -55,13 +55,12 @@ jobs:
         run: npm run build
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          personal_token: ${{ secrets.GH_PAGES_PAT }}
-          publish_dir: ./build
-          destination_dir: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}
-          user_name: 'github-actions[bot]'
-          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+          branch: gh-pages
+          folder: build
+          token: ${{ secrets.GH_PAGES_PAT }}
+          target-folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}
 
       - name: Comment PR with preview URL
         if: steps.build-type.outputs.BUILD_TYPE == 'staging'
