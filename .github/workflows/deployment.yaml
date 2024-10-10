@@ -65,14 +65,14 @@ jobs:
           if [[ "${{ steps.build-type.outputs.BUILD_TYPE }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
-        announcementBar: {\
+          announcementBar: {\
           id: '\''staging-environment'\'',\
           content:\
             '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
           backgroundColor: '\''#ffcc00'\'',\
           textColor: '\''#000000'\'',\
           isCloseable: false,\
-        },
+          },
             }' docusaurus.config.js
           else
             # Remove announcement bar for production build
