@@ -23,6 +23,7 @@ jobs:
           echo "Event name: ${{ github.event_name }}"
           echo "PR merged: ${{ github.event.pull_request.merged }}"
           echo "Base ref: ${{ github.event.pull_request.base.ref }}"
+          echo "Head ref: ${{ github.event.pull_request.head.ref }}"
 
       - name: Fetch and checkout main for merged PRs
         if: github.event.pull_request.merged == true
@@ -30,6 +31,8 @@ jobs:
           git fetch origin main
           git checkout main
           git pull
+          echo "Current branch: $(git branch --show-current)"
+          echo "Latest commit: $(git log -1 --oneline)"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -62,19 +65,22 @@ jobs:
           if [[ "${{ steps.build-type.outputs.BUILD_TYPE }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
-          announcementBar: {\
+        announcementBar: {\
           id: '\''staging-environment'\'',\
           content:\
             '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
           backgroundColor: '\''#ffcc00'\'',\
           textColor: '\''#000000'\'',\
           isCloseable: false,\
-          },
+        },
             }' docusaurus.config.js
           else
             # Remove announcement bar for production build
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
+          
+          echo "Modified docusaurus.config.js:"
+          cat docusaurus.config.js
 
       - name: Build website
         run: npm run build
@@ -85,17 +91,18 @@ jobs:
           ls -R build
 
       - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          branch: gh-pages
-          folder: build
-          token: ${{ secrets.GH_PAGES_PAT }}
-          target-folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+          user_name: 'github-actions[bot]'
+          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+          commit_message: ${{ github.event.pull_request.merged && 'Deploy production site' || format('Deploy PR preview for #{0}', github.event.number) }}
 
       - name: Comment PR with preview URL
         if: steps.build-type.outputs.BUILD_TYPE == 'staging'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
@@ -105,12 +112,12 @@ jobs:
       - name: Cleanup PR preview
         if: github.event.pull_request.merged == true || github.event.pull_request.state == 'closed'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
+          git clone --single-branch --branch gh-pages https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
           cd gh-pages
           if [ -d "pr-preview-$PR_NUMBER" ]; then
             git rm -rf "pr-preview-$PR_NUMBER"
@@ -124,4 +131,4 @@ jobs:
         run: |
           echo "Deployment completed"
           echo "Build type: ${{ steps.build-type.outputs.BUILD_TYPE }}"
-          echo "Target folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}"
+          echo "Target folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && 'root' || format('pr-preview-{0}', github.event.number) }}"
