@@ -35,21 +35,29 @@ jobs:
       - name: Build website (Staging)
         run: |
           echo "Modifying baseUrl for staging environment: ${{ github.event.repository.name }}"
-          sed -i 's/baseUrl: '\''\//baseUrl: '\''\/${{ github.event.repository.name }}/' docusaurus.config.js
+          sed -i 's|baseUrl: '\''\/|baseUrl: '\''\/${{ github.event.repository.name }}|' docusaurus.config.js
           
           echo "Adding announcement bar for staging environment"
-
           sed -i '/^});/i\
           // Announcement bar for the staging environment\
           announcementBar: {\
-            id: '\''staging-environment'\'', // Unique ID for the announcement\
+            id: '\''staging-environment'\'',\
             content:\
               '\''⚠️ This is a <strong>Staging Environment</strong>. Changes may not be final. For the latest production version, please visit <a href="https://iliasmavridis.github.io/test/" style="text-decoration: underline; color: inherit;">this link</a>.'\'',\
-            backgroundColor: '\''#ffcc00'\'', // Yellow background to grab attention\
-            textColor: '\''#000000'\'', // Black text for readability\
-            isCloseable: false, // Ensure users cannot close the banner\
+            backgroundColor: '\''#ffcc00'\'',\
+            textColor: '\''#000000'\'',\
+            isCloseable: false,\
           },' docusaurus.config.js
+          
+          echo "Debugging: Displaying modified docusaurus.config.js"
+          cat docusaurus.config.js
+          
+          echo "Building the website"
           npm run build
+          
+          echo "Debugging: Checking built index.html for announcement bar"
+          grep -i "announcement" build/index.html || echo "Announcement bar not found in index.html"
+
 
 
       # Deploy to GitHub Pages
