@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Docusaurus PR Workflow
 
 on:
   pull_request:
@@ -11,12 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write    
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.merged && 'main' || github.event.pull_request.head.ref }}
+
+      - name: Debug Event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR merged: ${{ github.event.pull_request.merged }}"
+          echo "Base ref: ${{ github.event.pull_request.base.ref }}"
+
+      - name: Fetch and checkout main for merged PRs
+        if: github.event.pull_request.merged == true
+        run: |
+          git fetch origin main
+          git checkout main
+          git pull
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,12 +37,12 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install --frozen-lockfile
+        run: npm ci
 
       - name: Determine build type and set variables
         id: build-type
         run: |
-          if [[ ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' }} == true ]]; then
+          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
             echo "BUILD_TYPE=production" >> $GITHUB_OUTPUT
             echo "BASE_URL=/" >> $GITHUB_OUTPUT
           else
@@ -37,22 +50,27 @@ jobs:
             echo "BASE_URL=/${{ github.event.repository.name }}/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
           fi
 
+      - name: Debug Build Type
+        run: |
+          echo "Build type: ${{ steps.build-type.outputs.BUILD_TYPE }}"
+          echo "Base URL: ${{ steps.build-type.outputs.BASE_URL }}"
+
       - name: Modify docusaurus.config.js
         run: |
           sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.BASE_URL }}|' docusaurus.config.js
-                    
+          
           if [[ "${{ steps.build-type.outputs.BUILD_TYPE }}" == "staging" ]]; then
-          sed -i '/themeConfig:/,/^    }),/ {
-            /^    }),/i\
+            sed -i '/themeConfig:/,/^    }),/ {
+              /^    }),/i\
           announcementBar: {\
-            id: '\''staging-environment'\'',\
-            content:\
-              '\''⚠️ This is a <strong>Staging Environment</strong>. Changes may not be final. For the latest production version, please visit <a href="https://iliasmavridis.github.io/test/" style="text-decoration: underline; color: inherit;">this link</a>.'\'',\
-            backgroundColor: '\''#ffcc00'\'',\
-            textColor: '\''#000000'\'',\
-            isCloseable: false,\
+          id: '\''staging-environment'\'',\
+          content:\
+            '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
+          backgroundColor: '\''#ffcc00'\'',\
+          textColor: '\''#000000'\'',\
+          isCloseable: false,\
           },
-              }' docusaurus.config.js
+            }' docusaurus.config.js
           else
             # Remove announcement bar for production build
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
@@ -60,6 +78,11 @@ jobs:
 
       - name: Build website
         run: npm run build
+
+      - name: Debug Build Output
+        run: |
+          echo "Contents of build directory:"
+          ls -R build
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
@@ -79,10 +102,26 @@ jobs:
         run: |
           gh pr comment $PR_NUMBER --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-$PR_NUMBER/"
 
-      - name: Clean up PR preview
-        if: github.event.pull_request.merged == true
+      - name: Cleanup PR preview
+        if: github.event.pull_request.merged == true || github.event.pull_request.state == 'closed'
         env:
           GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
-          gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/gh-pages:pr-preview-$PR_NUMBER || echo "Branch not found, skipping deletion"
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
+          cd gh-pages
+          if [ -d "pr-preview-$PR_NUMBER" ]; then
+            git rm -rf "pr-preview-$PR_NUMBER"
+            git commit -m "Remove PR preview for #$PR_NUMBER"
+            git push
+          else
+            echo "Preview folder for PR #$PR_NUMBER not found. Skipping cleanup."
+          fi
+
+      - name: Debug Deployment
+        run: |
+          echo "Deployment completed"
+          echo "Build type: ${{ steps.build-type.outputs.BUILD_TYPE }}"
+          echo "Target folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && '' || format('pr-preview-{0}', github.event.number) }}"
