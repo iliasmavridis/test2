@@ -26,11 +26,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: yarn
+#          cache: yarn
 
       # Install dependencies
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: npm install --frozen-lockfile
 
       # Build website (Production) for main repository
 #      - name: Build website (Production)
@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "Modifying baseUrl for staging environment: ${{ github.event.repository.name }}"
           sed -i 's/baseUrl: '\''\//baseUrl: '\''\/${{ github.event.repository.name }}/' docusaurus.config.js
-          yarn build
+          npm run build
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
