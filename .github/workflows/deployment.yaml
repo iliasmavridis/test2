@@ -95,9 +95,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
+          destination_dir: ${{ steps.build-type.outputs.type == 'production' && '' || format('pr-preview-{0}', github.event.number) }}
           user_name: 'github-actions[bot]'
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
-          commit_message: ${{ github.event.pull_request.merged && 'Deploy production site' || format('Deploy PR preview for #{0}', github.event.number) }}
 
       - name: Comment PR with preview URL
         if: steps.build-type.outputs.BUILD_TYPE == 'staging'
