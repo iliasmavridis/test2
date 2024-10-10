@@ -30,13 +30,13 @@ jobs:
             echo "BASE_URL=/" >> $GITHUB_OUTPUT
           else
             echo "BUILD_TYPE=staging" >> $GITHUB_OUTPUT
-            echo "BASE_URL=/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
+            echo "BASE_URL=/${{ github.event.repository.name }}/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
           fi
 
       - name: Modify docusaurus.config.js
         run: |
           sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.BASE_URL }}|' docusaurus.config.js
-          
+                    
           if [[ "${{ steps.build-type.outputs.BUILD_TYPE }}" == "staging" ]]; then
           sed -i '/themeConfig:/,/^    }),/ {
             /^    }),/i\
@@ -73,7 +73,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Preview this PR at: https://iliasmavridis.github.io/test/pr-preview-${{ github.event.number }}/'
+              body: `Preview this PR at: https://${context.repo.owner}.github.io/${{ github.event.repository.name }}/pr-preview-${{ github.event.number }}/`
             })
 
       - name: Clean up PR preview
