@@ -107,7 +107,7 @@ jobs:
           gh pr comment $PR_NUMBER --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-$PR_NUMBER/"
 
       - name: Cleanup PR preview
-        if: github.event.pull_request.merged == true || github.event.pull_request.state == 'closed'
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
           PR_NUMBER: ${{ github.event.number }}
