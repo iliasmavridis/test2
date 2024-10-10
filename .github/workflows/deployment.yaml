@@ -78,6 +78,7 @@ jobs:
       - name: Clean up PR preview
         if: github.event.pull_request.merged == true
         env:
-          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}        
+          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
+          PR_NUMBER: ${{ github.event.number }}
         run: |
-          git push origin --delete gh-pages:pr-preview-${{ github.event.number }}
+          gh api -X DELETE repos/${{ github.repository }}/git/refs/heads/gh-pages:pr-preview-$PR_NUMBER || echo "Branch not found, skipping deletion"
