@@ -2,9 +2,10 @@ name: Docusaurus PR Workflow
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-  pull_request_target:
-    types: [closed]
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches:
+      - main  # or your default branch name
 
 jobs:
   build-and-deploy:
@@ -18,22 +19,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug Event
-        run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "PR merged: ${{ github.event.pull_request.merged }}"
-          echo "Base ref: ${{ github.event.pull_request.base.ref }}"
-          echo "Head ref: ${{ github.event.pull_request.head.ref }}"
-
-      - name: Fetch and checkout main for merged PRs
-        if: github.event.pull_request.merged == true
-        run: |
-          git fetch origin main
-          git checkout main
-          git reset --hard origin/main  # Ensures the latest commit is checked out
-          echo "Current branch: $(git branch --show-current)"
-          echo "Latest commit: $(git log -1 --oneline)"
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -42,27 +27,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Determine build type and set variables
+      - name: Determine build type
         id: build-type
         run: |
-          if [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            echo "BUILD_TYPE=production" >> $GITHUB_OUTPUT
-            echo "BASE_URL=/" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            echo "type=production" >> $GITHUB_OUTPUT
+            echo "base_url=/" >> $GITHUB_OUTPUT
           else
-            echo "BUILD_TYPE=staging" >> $GITHUB_OUTPUT
-            echo "BASE_URL=/${{ github.event.repository.name }}/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
+            echo "type=staging" >> $GITHUB_OUTPUT
+            echo "base_url=/${{ github.event.repository.name }}/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
           fi
 
       - name: Debug Build Type
         run: |
-          echo "Build type: ${{ steps.build-type.outputs.BUILD_TYPE }}"
-          echo "Base URL: ${{ steps.build-type.outputs.BASE_URL }}"
+          echo "Build type: ${{ steps.build-type.outputs.type }}"
+          echo "Base URL: ${{ steps.build-type.outputs.base_url }}"
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR merged: ${{ github.event.pull_request.merged }}"
 
       - name: Modify docusaurus.config.js
         run: |
-          sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.BASE_URL }}|' docusaurus.config.js
+          sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
           
-          if [[ "${{ steps.build-type.outputs.BUILD_TYPE }}" == "staging" ]]; then
+          if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
           announcementBar: {\
@@ -75,12 +62,8 @@ jobs:
           },
             }' docusaurus.config.js
           else
-            # Remove announcement bar for production build
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
-          
-          echo "Modified docusaurus.config.js:"
-          cat docusaurus.config.js
 
       - name: Build website
         run: npm run build
@@ -90,17 +73,33 @@ jobs:
           echo "Contents of build directory:"
           ls -R build
 
-      - name: Deploy to GitHub Pages
+      - name: Deploy Production to GitHub Pages
+        if: steps.build-type.outputs.type == 'production'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git clone --single-branch --branch gh-pages https://${GITHUB_TOKEN}@github.com/${{ github.repository }}.git gh-pages
+          rm -rf gh-pages/*
+          cp -r build/* gh-pages/
+          cd gh-pages
+          git add .
+          git commit -m "Deploy production site" || echo "No changes to commit"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy PR Preview
+        if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
-          destination_dir: ${{ steps.build-type.outputs.type == 'production' && './' || format('pr-preview-{0}', github.event.number) }} # Updated condition for production vs. staging
+          destination_dir: pr-preview-${{ github.event.number }}
           user_name: 'github-actions[bot]'
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Comment PR with preview URL
-        if: steps.build-type.outputs.BUILD_TYPE == 'staging'
+        if: steps.build-type.outputs.type == 'staging'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
@@ -110,14 +109,14 @@ jobs:
           gh pr comment $PR_NUMBER --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-$PR_NUMBER/"
 
       - name: Cleanup PR preview
-        if: github.event.pull_request.merged == true || github.event.pull_request.state == 'closed'
+        if: github.event.action == 'closed'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
+          git clone --single-branch --branch gh-pages https://${GH_TOKEN}@github.com/${{ github.repository }}.git gh-pages
           cd gh-pages
           if [ -d "pr-preview-$PR_NUMBER" ]; then
             git rm -rf "pr-preview-$PR_NUMBER"
@@ -130,5 +129,5 @@ jobs:
       - name: Debug Deployment
         run: |
           echo "Deployment completed"
-          echo "Build type: ${{ steps.build-type.outputs.BUILD_TYPE }}"
-          echo "Target folder: ${{ steps.build-type.outputs.BUILD_TYPE == 'production' && 'root' || format('pr-preview-{0}', github.event.number) }}"
+          echo "Build type: ${{ steps.build-type.outputs.type }}"
+          echo "Target folder: ${{ steps.build-type.outputs.type == 'production' && 'root' || format('pr-preview-{0}', github.event.number) }}"
