@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      dev_branch:
+        description: 'Change the build branch for deployment to personal website for PR previewing'
+        required: false
+        default: 'main'
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.dev_branch }}
+
+      # Setup Node.js environment
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: yarn
+
+      # Install dependencies
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Build website (Production) for main repository
+#      - name: Build website (Production)
+#        if: ${{ github.repository_owner == 'iliasmavridis' && github.ref == 'refs/heads/main' }}
+#        run: yarn build
+
+      # Build website (Staging) for development/PR previews
+      - name: Build website (Staging)
+#        if: ${{ github.repository_owner != 'iliasmavridis' || github.event_name == 'workflow_dispatch' }}
+        run: |
+          echo "Modifying baseUrl for staging environment: ${{ github.event.repository.name }}"
+          sed -i 's/baseUrl: '\''\//baseUrl: '\''\/${{ github.event.repository.name }}/' docusaurus.config.js
+          yarn build
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Publish output directory
+          publish_dir: ./build
+          # Use GitHub Actions bot for commit authorship
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
