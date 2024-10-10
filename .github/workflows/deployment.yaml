@@ -52,6 +52,9 @@ jobs:
             isCloseable: false,\
           },
               }' docusaurus.config.js
+          else
+            # Remove announcement bar for production build
+            sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
 
       - name: Build website
