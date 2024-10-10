@@ -38,8 +38,8 @@ jobs:
           sed -i 's|baseUrl: '\''\/|baseUrl: '\''\/${{ github.event.repository.name }}|' docusaurus.config.js
           
           echo "Adding announcement bar for staging environment"
-          sed -i '/^});/i\
-          // Announcement bar for the staging environment\
+          sed -i '/themeConfig:/,/^    }),/ {
+            /^    }),/i\
           announcementBar: {\
             id: '\''staging-environment'\'',\
             content:\
@@ -47,8 +47,9 @@ jobs:
             backgroundColor: '\''#ffcc00'\'',\
             textColor: '\''#000000'\'',\
             isCloseable: false,\
-          },' docusaurus.config.js
-          
+          },
+              }' docusaurus.config.js
+              
           echo "Debugging: Displaying modified docusaurus.config.js"
           cat docusaurus.config.js
           
@@ -57,6 +58,7 @@ jobs:
           
           echo "Debugging: Checking built index.html for announcement bar"
           grep -i "announcement" build/index.html || echo "Announcement bar not found in index.html"
+
 
 
 
