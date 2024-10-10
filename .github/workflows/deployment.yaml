@@ -106,26 +106,35 @@ jobs:
         run: |
           gh pr comment $PR_NUMBER --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-$PR_NUMBER/"
 
-      - name: Cleanup PR previews
+      - name: Remove PR Preview after merge
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
-          cd gh-pages
-          for dir in pr-preview-*; do
-            if [ -d "$dir" ]; then
-              pr_number=$(echo $dir | sed 's/pr-preview-//')
-              if ! gh pr view $pr_number &>/dev/null; then
-                git rm -rf "$dir"
-                echo "Removed preview for closed PR #$pr_number"
-              fi
+          
+          # Extract PR number from the merge commit message
+          PR_NUMBER=$(git log -1 --pretty=%B | grep -oP '#\K\d+')
+          
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Merged PR number: $PR_NUMBER"
+            
+            # Checkout gh-pages branch
+            git fetch origin gh-pages
+            git checkout gh-pages
+            
+            if [ -d "pr-preview-$PR_NUMBER" ]; then
+              git rm -rf "pr-preview-$PR_NUMBER"
+              git commit -m "Remove preview for merged PR #$PR_NUMBER"
+              git push origin gh-pages
+              echo "Removed preview for merged PR #$PR_NUMBER"
+            else
+              echo "Preview folder for PR #$PR_NUMBER not found. It may have been already removed."
             fi
-          done
-          git commit -m "Cleanup closed PR previews" || echo "No previews to clean up"
-          git push
+          else
+            echo "Could not determine PR number from merge commit. Skipping preview removal."
+          fi
 
       - name: Debug Deployment
         run: |
