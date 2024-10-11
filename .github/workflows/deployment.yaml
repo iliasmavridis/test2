@@ -114,8 +114,15 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
-          cd gh-pages
+          
+          if [ -d "gh-pages" ]; then
+            cd gh-pages
+            git pull origin gh-pages
+          else
+            git clone --single-branch --branch gh-pages https://${{ secrets.GH_PAGES_PAT }}@github.com/${{ github.repository }}.git gh-pages
+            cd gh-pages
+          fi
+          
           if [ -d "pr-preview-$PR_NUMBER" ]; then
             git rm -rf "pr-preview-$PR_NUMBER"
             git commit -m "Remove PR preview for #$PR_NUMBER"
