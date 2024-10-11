@@ -73,6 +73,21 @@ jobs:
           echo "Contents of build directory:"
           ls -R build
 
+      - name: Set PR_NUMBER for push event
+        if: github.event_name == 'push'
+        run: |
+          PR_NUMBER=$(gh pr list --state merged --limit 1 --json number --jq '.[0].number')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set PR_NUMBER for pull_request event
+        if: github.event_name == 'pull_request'
+        run: echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+
+      - name: Debug PR_NUMBER
+        run: echo "PR_NUMBER is ${{ env.PR_NUMBER }}"
+
       - name: Deploy Production to GitHub Pages
         if: steps.build-type.outputs.type == 'production'
         run: |
@@ -100,17 +115,15 @@ jobs:
         if: steps.build-type.outputs.type == 'staging'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
         run: |
-          gh pr comment $PR_NUMBER --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-$PR_NUMBER/"
+          gh pr comment ${{ env.PR_NUMBER }} --body "Preview this PR at: https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-${{ env.PR_NUMBER }}/"
 
       - name: Cleanup PR preview
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GH_PAGES_PAT }}
-          PR_NUMBER: ${{ github.event.number }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -123,16 +136,16 @@ jobs:
             cd gh-pages
           fi
           
-          if [ -d "pr-preview-$PR_NUMBER" ]; then
-            rm -rf "pr-preview-$PR_NUMBER"
-            git commit -m "Remove PR preview for #$PR_NUMBER"
+          if [ -d "pr-preview-${{ env.PR_NUMBER }}" ]; then
+            git rm -rf "pr-preview-${{ env.PR_NUMBER }}"
+            git commit -m "Remove PR preview for #${{ env.PR_NUMBER }}"
             git push
           else
-            echo "Preview folder for PR #$PR_NUMBER not found. Skipping cleanup."
+            echo "Preview folder for PR #${{ env.PR_NUMBER }} not found. Skipping cleanup."
           fi
 
       - name: Debug Deployment
         run: |
           echo "Deployment completed"
           echo "Build type: ${{ steps.build-type.outputs.type }}"
-          echo "Target folder: ${{ steps.build-type.outputs.type == 'production' && 'root' || format('pr-preview-{0}', github.event.number) }}"
+          echo "Target folder: ${{ steps.build-type.outputs.type == 'production' && 'root' || format('pr-preview-{0}', env.PR_NUMBER) }}"
