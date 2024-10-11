@@ -123,7 +123,9 @@ jobs:
             cd gh-pages
           fi
           
-          if [ -d "pr-preview-$PR_NUMBER" ]; then
+          ls -R
+          
+          if [ -d "ghpr-preview-$PR_NUMBER" ]; then
             git rm -rf "pr-preview-$PR_NUMBER"
             git commit -m "Remove PR preview for #$PR_NUMBER"
             git push
