@@ -121,15 +121,15 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const preview_url = "https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-${{ env.PR_NUMBER }}";
-            const pr_number = env.PR_NUMBER;
+            const preview_url = `https://${process.env.REPO_OWNER}.github.io/${process.env.REPO_NAME}/pr-preview-${process.env.PR_NUMBER}`;
+            const pr_number = process.env.PR_NUMBER;
 
             if (!pr_number || !preview_url) {
               throw new Error('PR number or Preview URL not provided!');
             }
 
             const commentBody = "📝 This PR updates the documentation.\n\n" +
-                               "👉 Preview this PR at: " + preview_url + ".";
+                              "👉 Preview this PR at: " + preview_url + ".";
 
             await github.rest.issues.createComment({
               issue_number: pr_number,
@@ -137,6 +137,7 @@ jobs:
               repo: context.repo.repo,
               body: commentBody
             });
+
 
 
       - name: Cleanup PR preview
