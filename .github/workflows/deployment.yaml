@@ -117,10 +117,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const commentBody = `
-            📝 This PR updates the documentation.  
-            👉 Preview this PR at: ${{ github.event.client_payload.preview_url }}.
-            `;
+            const commentBody = "📝 This PR updates the documentation.\n\n" +
+                               "👉 Preview this PR at: ${{ github.event.client_payload.preview_url }}.";
 
             github.rest.issues.createComment({
               issue_number: ${{ github.event.client_payload.pr_number }},
