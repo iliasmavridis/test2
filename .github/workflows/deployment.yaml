@@ -121,7 +121,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const preview_url = "https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-${{ env.PR_NUMBER }}"";
+            const preview_url = "https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-${{ env.PR_NUMBER }}";
             const pr_number = env.PR_NUMBER;
 
             if (!pr_number || !preview_url) {
