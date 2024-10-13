@@ -114,11 +114,15 @@ jobs:
       - name: Comment PR with preview URL
         if: steps.build-type.outputs.type == 'staging'
         uses: actions/github-script@v6
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const preview_url = github.event.client_payload.preview_url;
-            const pr_number = github.event.client_payload.pr_number;
+            const preview_url = "https://$REPO_OWNER.github.io/$REPO_NAME/pr-preview-${{ env.PR_NUMBER }}"";
+            const pr_number = env.PR_NUMBER;
 
             if (!pr_number || !preview_url) {
               throw new Error('PR number or Preview URL not provided!');
@@ -133,6 +137,8 @@ jobs:
               repo: context.repo.repo,
               body: commentBody
             });
+
+
       - name: Cleanup PR preview
         if: github.event_name == 'push'
         env:
