@@ -53,12 +53,12 @@ jobs:
           fi
 
       - name: Modify docusaurus.config.js for preview
-        if: steps.deploy-type.outputs.type == 'preview'
+        if: steps.build-type.outputs.type == 'preview'
         run: |
           cd test2
           if [ -z "$(git status --porcelain)"  ]; then
             echo 'No Changes to Commit'          
-            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.deploy-type.outputs.base_url }}|' docusaurus.config.js
+            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
               announcementBar: {\
@@ -75,7 +75,7 @@ jobs:
           fi
 
       - name: Trigger deployment workflow
-        if: steps.deploy-type.outputs.type == 'preview'
+        if: steps.build-type.outputs.type == 'preview'
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.PAT }}
