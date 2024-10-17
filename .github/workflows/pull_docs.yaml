@@ -3,6 +3,12 @@ on:
   repository_dispatch:
     types: [docs-updated-on-main, preview-docs-pr]
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.client_payload.pr_number || 'main' }}
+  cancel-in-progress: true
+
+  
 env:
   # Verified available memory within the pipeline which was around 6GB usable memory
   # node limits memory to 2GB so we increased it to use the available memory within the pipeline
