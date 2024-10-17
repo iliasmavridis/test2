@@ -66,7 +66,7 @@ jobs:
     if: github.event_name == 'repository_dispatch' && github.event.action == 'preview-docs-pr'
     needs: build
     runs-on: ubuntu-latest
-    env: # Set environment variables here
+    env:
       REPO_OWNER: ${{ github.repository_owner }}
       REPO_NAME: ${{ github.event.repository.name }}
       PR_NUMBER: ${{ github.event.client_payload.pr_number }}    
@@ -80,22 +80,29 @@ jobs:
 
       - name: Comment on PR in test
         uses: actions/github-script@v6
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
         with:
           github-token: ${{ secrets.PAT }}
           script: |
-            const pr_number = process.env.PR_NUMBER; // Use the environment variable
+            const pr_number = process.env.PR_NUMBER;
+            const repo_owner = process.env.REPO_OWNER;
+            const repo_name = process.env.REPO_NAME;
+            
             if (!pr_number) {
               throw new Error('PR number not provided!');
             }
 
-            const preview_url = `https://${process.env.REPO_OWNER}.github.io/${process.env.REPO_NAME}/pr-preview-${pr_number}`;
+            const preview_url = `https://${repo_owner}.github.io/${repo_name}/pr-preview-${pr_number}`;
             const commentBody = "📝 This PR updates the documentation.\n\n" +
-                               "👉 Preview this PR at: " + preview_url + ".";
+                              "👉 Preview this PR at: " + preview_url + ".";
 
             await github.rest.issues.createComment({
-              issue_number: ${pr_number},
-              owner: process.env.REPO_OWNER,
-              repo: process.env.REPO_NAME,
+              issue_number: parseInt(pr_number),
+              owner: repo_owner,
+              repo: repo_name,
               body: commentBody
             });
 
