@@ -139,7 +139,7 @@ jobs:
         with:
           github_token: ${{ secrets.PAT }}
           publish_dir: ./test2/build
-          destination_dir: pr-preview-${{ github.event.number }}
+          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
           user_name: 'github-actions[bot]'
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
@@ -195,4 +195,5 @@ jobs:
         run: |
           echo "Deployment completed"
           echo "Build type: ${{ steps.build-type.outputs.type }}"
+          echo "PR Number: ${{ github.event.client_payload.pr_number }}"
           echo "Target folder: ${{ steps.build-type.outputs.type == 'production' && 'root' || format('pr-preview-{0}', github.event.client_payload.pr_number) }}"
