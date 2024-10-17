@@ -182,12 +182,12 @@ jobs:
             cd gh-pages
           fi
           
-          if [ -d "pr-preview-${{ env.PR_NUMBER }}" ]; then
-            git rm -rf "pr-preview-${{ env.PR_NUMBER }}"
-            git commit -m "Remove PR preview for #${{ env.PR_NUMBER }}"
+          if [ -d "pr-preview-${{ github.event.client_payload.pr_number }}" ]; then
+            git rm -rf "pr-preview-${{ github.event.client_payload.pr_number }}"
+            git commit -m "Remove PR preview for #${{ github.event.client_payload.pr_number }}"
             git push
           else
-            echo "Preview folder for PR #${{ env.PR_NUMBER }} not found. Skipping cleanup."
+            echo "Preview folder for PR #${{ github.event.client_payload.pr_number }} not found. Skipping cleanup."
           fi
 
       - name: Debug Deployment
