@@ -1,11 +1,7 @@
-name: Docusaurus PR Workflow
-
+name: Pull docs from test repo
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-  push:
-    branches:
-      - main  # or your default branch name
+  repository_dispatch:
+    types: [docs-updated-on-main, preview-docs-pr]
 
 jobs:
   build-and-deploy:
