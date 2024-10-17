@@ -31,7 +31,8 @@ jobs:
         name: "Checkout test2"
         with:
           fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.GIT_TOKEN }} # explicit token needed to trigger follow-up deployment workflow
+          token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
+          repository: iliasmavridis/test2
           path: test2
 
 
@@ -117,7 +118,7 @@ jobs:
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+          git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git" gh-pages
           cd gh-pages
           # Overwrite existing files with new build
           cp -rf ../build/* .
@@ -129,7 +130,7 @@ jobs:
         if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT }}
           publish_dir: ./build
           destination_dir: pr-preview-${{ github.event.number }}
           user_name: 'github-actions[bot]'
