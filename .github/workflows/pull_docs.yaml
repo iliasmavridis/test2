@@ -74,7 +74,7 @@ jobs:
   deploy-production:
     name: Deploy to GitHub Pages (Production)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: setup
     runs-on: ubuntu-latest
     concurrency: 
       group: ${{ github.workflow }}-production
@@ -93,7 +93,7 @@ jobs:
   deploy-preview:
     name: Deploy PR Preview
     if: github.event_name == 'repository_dispatch' && github.event.action == 'preview-docs-pr-dep'
-    needs: build
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - name: Deploy Preview to GitHub Pages
