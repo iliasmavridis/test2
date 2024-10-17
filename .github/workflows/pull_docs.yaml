@@ -55,12 +55,15 @@ jobs:
       - name: Determine build type
         id: build-type
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          if [[ "${{ github.event.action }}" == "docs-updated-on-main" ]]; then
             echo "type=production" >> $GITHUB_OUTPUT
             echo "base_url=/test2/" >> $GITHUB_OUTPUT
-          else
+          elif [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
             echo "type=staging" >> $GITHUB_OUTPUT
             echo "base_url=/test2/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
+          else
+            echo "Unknown event type" >> $GITHUB_OUTPUT
+            exit 1
           fi
 
       - name: Debug Build Type
