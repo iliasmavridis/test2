@@ -57,7 +57,7 @@ jobs:
       - name: Deploy Preview to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.PAT }} 
           publish_dir: build
           destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
 
