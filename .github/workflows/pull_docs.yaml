@@ -29,15 +29,27 @@ jobs:
           token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
           path: test2
 
-      - name: Configure deployment settings
-        id: deploy-type
+#      - name: Configure deployment settings
+#        id: deploy-type
+##        run: |
+#          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
+#            echo "type=preview" >> $GITHUB_OUTPUT
+#            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
+#          else
+#            echo "type=production" >> $GITHUB_OUTPUT
+#            echo "base_url=/" >> $GITHUB_OUTPUT
+#          fi
+
+
+      - name: Determine build type
+        id: build-type
         run: |
-          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
-            echo "type=preview" >> $GITHUB_OUTPUT
-            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
-          else
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
             echo "type=production" >> $GITHUB_OUTPUT
-            echo "base_url=/" >> $GITHUB_OUTPUT
+            echo "base_url=/test2/" >> $GITHUB_OUTPUT
+          else
+            echo "type=staging" >> $GITHUB_OUTPUT
+            echo "base_url=/test2/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
           fi
 
       - name: Modify docusaurus.config.js for preview
@@ -61,19 +73,6 @@ jobs:
           else
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
-
-      - name: Copy preview Content Except static
-        run: |
-          find ./test/docs/ -mindepth 1 -maxdepth 1 \
-            ! -name 'static' \
-            -exec cp -r {} ./test2/pr-preview-${{ github.event.client_payload.pr_number }}/docs/ \;
-        continue-on-error: false
-
-      - name: Copy preview static
-        run: |
-          cp -r ./test/docs/static/* ./test2/pr-preview-${{ github.event.client_payload.pr_number }}/static
-        continue-on-error: false
-
 
       - name: Trigger deployment workflow
         if: steps.deploy-type.outputs.type == 'preview'

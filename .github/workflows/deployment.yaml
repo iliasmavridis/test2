@@ -65,6 +65,13 @@ jobs:
           publish_dir: build
           destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
 
+
+      - name: Debug Build Output
+        run: |
+          echo "Contents of build directory:"
+          pwd
+          ls -R build
+
       - name: Comment on PR in test
         uses: actions/github-script@v6
         with:
