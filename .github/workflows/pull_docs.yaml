@@ -122,12 +122,13 @@ jobs:
       - name: Deploy Production to GitHub Pages
         if: steps.build-type.outputs.type == 'production'
         run: |
+          ls -l
           git config --global user.name 'github-actions[bot]'
           git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git" gh-pages
           cd gh-pages
           # Overwrite existing files with new build
-          cp -rf ../build/* .
+          cp -rf ../test2/build/* .
           git add .
           git commit -m "Update production Docusaurus site" || echo "No changes to commit"
           git push
@@ -137,7 +138,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.PAT }}
-          publish_dir: ./build
+          publish_dir: ./test2/build
           destination_dir: pr-preview-${{ github.event.number }}
           user_name: 'github-actions[bot]'
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
