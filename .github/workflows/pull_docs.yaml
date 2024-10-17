@@ -23,26 +23,11 @@ jobs:
           ref: ${{ github.event.client_payload.sha || 'main' }} # If it is a preview build, use the provided SHA if, if no SHA is provided, use 'main'
 
       - uses: actions/checkout@v3
-        name: "Checkout test-website"
+        name: "Checkout test2"
         with:
           fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
           token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
           path: test2
-
-      - name: Copy Content Except static
-        run: |
-          rm -r ./test2/docs/*
-          find ./test/docs/ -mindepth 1 -maxdepth 1 \
-            ! -name 'static' \
-            -exec cp -r {} ./test2/docs/ \;
-        continue-on-error: false
-
-      - name: Copy static
-        run: |
-          mkdir -p ./test2/static
-          rm -Rf ./test2/static/*
-          cp -r ./test/docs/static/* ./test2/static
-        continue-on-error: false
 
       - name: Configure deployment settings
         id: deploy-type
@@ -76,6 +61,19 @@ jobs:
           else
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
+
+      - name: Copy preview Content Except static
+        run: |
+          find ./test/docs/ -mindepth 1 -maxdepth 1 \
+            ! -name 'static' \
+            -exec cp -r {} ./test2/pr-preview-${{ github.event.client_payload.pr_number }}/docs/ \;
+        continue-on-error: false
+
+      - name: Copy preview static
+        run: |
+          cp -r ./test/docs/static/* ./test2/pr-preview-${{ github.event.client_payload.pr_number }}/static
+        continue-on-error: false
+
 
       - name: Trigger deployment workflow
         if: steps.deploy-type.outputs.type == 'preview'

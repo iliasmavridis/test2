@@ -78,7 +78,7 @@ jobs:
 
             const preview_url = `https://iliasmavridis.github.io/test/pr-preview-${pr_number}`;
             const commentBody = "📝 This PR updates the documentation.\n\n" +
-                              "👉 Preview this PR at: " + preview_url + ".";
+                              "👉 Preview this PR at: " + preview_url + " .";
 
             await github.rest.issues.createComment({
               issue_number: parseInt(pr_number),
