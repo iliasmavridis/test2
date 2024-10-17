@@ -73,7 +73,7 @@ jobs:
       - name: Modify docusaurus.config.js
         run: |
           cd test2
-          ls -l
+          pwd
           sed -i 's|baseUrl: '\''\/test2\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
           
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
