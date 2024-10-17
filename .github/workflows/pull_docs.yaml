@@ -62,11 +62,109 @@ jobs:
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
 
-      - name: Trigger deployment workflow
-        if: steps.deploy-type.outputs.type == 'preview'
-        uses: peter-evans/repository-dispatch@v2
+      - name: Build website
+        run: npm run build
+
+      - name: Debug Build Output
+        run: |
+          echo "Contents of build directory:"
+          ls -R build
+
+
+  deploy-production:
+    name: Deploy to GitHub Pages (Production)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    concurrency: 
+      group: ${{ github.workflow }}-production
+      cancel-in-progress: false    
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-preview:
+    name: Deploy PR Preview
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'preview-docs-pr-dep'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Preview to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          token: ${{ secrets.PAT }}
-          repository: iliasmavridis/test2
-          event-type: preview-docs-pr-dep
-          client-payload: '{"pr_number": "${{ github.event.client_payload.pr_number }}"}'
+          github_token: ${{ secrets.PAT }} 
+          publish_dir: build
+          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
+
+
+      - name: Debug Build Output
+        run: |
+          echo "Contents of build directory:"
+          pwd
+          ls -R build
+
+      - name: Comment on PR in test
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PAT }}
+          script: |
+            const pr_number = ${{ github.event.client_payload.pr_number }};
+
+            if (!pr_number) {
+              throw new Error('PR number not provided!');
+            }
+
+            const preview_url = `https://iliasmavridis.github.io/test/pr-preview-${pr_number}`;
+            const commentBody = "📝 This PR updates the documentation.\n\n" +
+                              "👉 Preview this PR at: " + preview_url + " .";
+
+            await github.rest.issues.createComment({
+              issue_number: parseInt(pr_number),
+              owner: 'iliasmavridis',
+              repo: 'test',
+              body: commentBody
+            });
+
+  cleanup-pr-preview:
+    name: Cleanup PR preview
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup PR preview
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git config --global user.name 'github-actions[im]'
+          git config --global user.email 'im@noreply.github.com'
+          
+          if [ -d "gh-pages" ]; then
+            cd gh-pages
+            git pull origin gh-pages
+          else
+            git clone --single-branch --branch gh-pages https://${{ secrets.PAT }}@github.com/${{ github.repository }}.git gh-pages
+            cd gh-pages
+          fi
+          
+          if [ -d "pr-preview-${{ github.event.pull_request.number }}" ]; then
+            git rm -rf "pr-preview-${{ github.event.pull_request.number }}"
+            git commit -m "Remove PR preview for #${{ github.event.pull_request.number }}"
+            git push
+          else
+            echo "Preview folder for PR #${{ github.event.pull_request.number }} not found. Skipping cleanup."
+
+
+#      - name: Trigger deployment workflow
+#        if: steps.deploy-type.outputs.type == 'preview'
+#        uses: peter-evans/repository-dispatch@v2
+#        with:
+#          token: ${{ secrets.PAT }}
+#          repository: iliasmavridis/test2
+#          event-type: preview-docs-pr-dep
+#          client-payload: '{"pr_number": "${{ github.event.client_payload.pr_number }}"}'
