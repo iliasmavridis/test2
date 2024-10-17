@@ -13,7 +13,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: "Checkout test"
         with:
           fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
@@ -22,31 +22,33 @@ jobs:
           path: test
           ref: ${{ github.event.client_payload.sha || 'main' }} # If it is a preview build, use the provided SHA if, if no SHA is provided, use 'main'
 
-      - uses: actions/checkout@v3
-        name: "Checkout test2"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
-          path: test2
+          node-version: '18'
 
-      - name: Configure deployment settings
-        id: deploy-type
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Determine build type
+        id: build-type
         run: |
-          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
-            echo "type=preview" >> $GITHUB_OUTPUT
-            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
-          else
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
             echo "type=production" >> $GITHUB_OUTPUT
-            echo "base_url=/" >> $GITHUB_OUTPUT
+            echo "base_url=/test2/" >> $GITHUB_OUTPUT
+          else
+            echo "type=staging" >> $GITHUB_OUTPUT
+            echo "base_url=/test2/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
           fi
 
-      - name: Modify docusaurus.config.js for preview
-        if: steps.deploy-type.outputs.type == 'preview'
+
+
+      - name: Modify docusaurus.config.js
         run: |
-          cd test2
-          if [ -z "$(git status --porcelain)"  ]; then
-            echo 'No Changes to Commit'          
-            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.deploy-type.outputs.base_url }}|' docusaurus.config.js
+          sed -i 's|baseUrl: '\''\/test2\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
+          
+          if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
               announcementBar: {\
@@ -62,6 +64,7 @@ jobs:
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
 
+
       - name: Build website
         run: npm run build
 
@@ -70,38 +73,44 @@ jobs:
           echo "Contents of build directory:"
           ls -R build
 
+      - name: Set PR_NUMBER for push event
+        if: github.event_name == 'push'
+        run: |
+          PR_NUMBER=$(gh pr list --state merged --limit 1 --json number --jq '.[0].number')
+          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  deploy-production:
-    name: Deploy to GitHub Pages (Production)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: setup
-    runs-on: ubuntu-latest
-    concurrency: 
-      group: ${{ github.workflow }}-production
-      cancel-in-progress: false    
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Set PR_NUMBER for pull_request event
+        if: github.event_name == 'pull_request'
+        run: echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
 
-  deploy-preview:
-    name: Deploy PR Preview
-    if: github.event_name == 'repository_dispatch' && github.event.action == 'preview-docs-pr-dep'
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy Preview to GitHub Pages
+      - name: Debug PR_NUMBER
+        run: echo "PR_NUMBER is ${{ env.PR_NUMBER }}"
+
+
+      - name: Deploy Production to GitHub Pages
+        if: steps.build-type.outputs.type == 'production'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+          cd gh-pages
+          # Overwrite existing files with new build
+          cp -rf ../build/* .
+          git add .
+          git commit -m "Update production Docusaurus site" || echo "No changes to commit"
+          git push
+
+      - name: Deploy PR Preview
+        if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.PAT }} 
-          publish_dir: build
-          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+          destination_dir: pr-preview-${{ github.event.number }}
+          user_name: 'github-actions[bot]'
+          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
 
       - name: Debug Build Output
