@@ -38,12 +38,9 @@ jobs:
 
       - name: Copy static
         run: |
-          mkdir -p ./test2/static/dev_files
-          mkdir -p ./test2/static/po_files
-          rm -Rf ./test2/static/dev_files/*
-          rm -Rf ./test2/static/po_files/*
-          cp ./test/docs/static/dev_files/* ./test2/static/dev_files
-          cp ./test/docs/static/po_files/* ./test2/static/po_files
+          mkdir -p ./test2/static
+          rm -Rf ./test2/static/*
+          cp ./test/docs/static/* ./test2/static
         continue-on-error: false
 
       - name: Configure deployment settings
