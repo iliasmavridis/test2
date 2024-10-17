@@ -76,7 +76,7 @@ jobs:
               throw new Error('PR number not provided!');
             }
 
-            const preview_url = `https://${repo_owner}.github.io/${repo_name}/pr-preview-${pr_number}`;
+            const preview_url = `https://iliasmavridis.github.io/test/pr-preview-${pr_number}`;
             const commentBody = "📝 This PR updates the documentation.\n\n" +
                               "👉 Preview this PR at: " + preview_url + ".";
 
