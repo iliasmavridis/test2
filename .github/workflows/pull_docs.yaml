@@ -1,0 +1,89 @@
+name: Pull docs from test repo
+on:
+  repository_dispatch:
+    types: [docs-updated-on-main, preview-docs-pr]
+
+env:
+  # Verified available memory within the pipeline which was around 6GB usable memory
+  # node limits memory to 2GB so we increased it to use the available memory within the pipeline
+  NODE_OPTIONS: --max-old-space-size=5500
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: "Checkout test"
+        with:
+          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
+          token: ${{ secrets.GIT_TOKEN }}
+          repository: iliasmavridis/test
+          path: test
+          ref: ${{ github.event.client_payload.sha || 'main' }} # If it is a preview build, use the provided SHA if, if no SHA is provided, use 'main'
+
+      - uses: actions/checkout@v3
+        name: "Checkout test-website"
+        with:
+          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
+          token: ${{ secrets.GIT_TOKEN }} # explicit token needed to trigger follow-up deployment workflow
+          path: test2
+
+      - name: Copy Content Except static
+        run: |
+          rm -r ./test2/docs/*
+          find ./test/docs/ -mindepth 1 -maxdepth 1 \
+            ! -name 'static' \
+            -exec cp -r {} ./test2/docs/ \;
+        continue-on-error: false
+
+      - name: Copy static
+        run: |
+          mkdir -p ./test2/static/dev_files
+          mkdir -p ./test2/static/po_files
+          rm -Rf ./test2/static/dev_files/*
+          rm -Rf ./test2/static/po_files/*
+          cp ./test/docs/static/dev_files/* ./test2/static/dev_files
+          cp ./test/docs/static/po_files/* ./test2/static/po_files
+        continue-on-error: false
+
+      - name: Configure deployment settings
+        id: deploy-type
+        run: |
+          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
+            echo "type=preview" >> $GITHUB_OUTPUT
+            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
+          else
+            echo "type=production" >> $GITHUB_OUTPUT
+            echo "base_url=/" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Modify docusaurus.config.js for preview
+        if: steps.deploy-type.outputs.type == 'preview'
+        run: |
+          cd test2
+          if [ -z "$(git status --porcelain)"  ]; then
+            echo 'No Changes to Commit'          
+            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.deploy-type.outputs.base_url }}|' docusaurus.config.js
+            sed -i '/themeConfig:/,/^    }),/ {
+              /^    }),/i\
+              announcementBar: {\
+              id: '\''staging-environment'\'',\
+              content:\
+                '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>'\'',\
+              backgroundColor: '\''#ffcc00'\'',\
+              textColor: '\''#000000'\'',\
+              isCloseable: false,\
+              },
+            }' docusaurus.config.js
+          else
+            sed -i '/announcementBar:/,/},/d' docusaurus.config.js
+          fi
+
+      - name: Trigger deployment workflow
+        if: steps.deploy-type.outputs.type == 'preview'
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GIT_TOKEN }}
+          repository: iliasmavridis/test2
+          event-type: preview-docs-pr
+          client-payload: '{"pr_number": "${{ github.event.client_payload.pr_number }}"}'
