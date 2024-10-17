@@ -57,31 +57,21 @@ jobs:
     if: github.event_name == 'repository_dispatch' && github.event.action == 'preview-docs-pr-dep'
     needs: build
     runs-on: ubuntu-latest
-    env:
-      REPO_OWNER: ${{ github.repository_owner }}
-      REPO_NAME: ${{ github.event.repository.name }}
-      PR_NUMBER: ${{ github.event.client_payload.pr_number }}    
     steps:
       - name: Deploy Preview to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.PAT }} 
           publish_dir: build
-          destination_dir: pr-preview-${{ env.PR_NUMBER }}
+          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
 
       - name: Comment on PR in test
         uses: actions/github-script@v6
-        env:
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
         with:
           github-token: ${{ secrets.PAT }}
           script: |
-            const pr_number = process.env.PR_NUMBER;
-            const repo_owner = process.env.REPO_OWNER;
-            const repo_name = process.env.REPO_NAME;
-            
+            const pr_number = ${{ github.event.client_payload.pr_number }};
+
             if (!pr_number) {
               throw new Error('PR number not provided!');
             }
@@ -92,8 +82,8 @@ jobs:
 
             await github.rest.issues.createComment({
               issue_number: parseInt(pr_number),
-              owner: repo_owner,
-              repo: repo_name,
+              owner: 'iliasmavridis',
+              repo: 'test',
               body: commentBody
             });
 
