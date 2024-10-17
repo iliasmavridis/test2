@@ -60,7 +60,7 @@ jobs:
             echo "base_url=/test2/" >> $GITHUB_OUTPUT
           else
             echo "type=staging" >> $GITHUB_OUTPUT
-            echo "base_url=/test2/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
+            echo "base_url=/test2/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
           fi
 
       - name: Debug Build Type
@@ -72,6 +72,7 @@ jobs:
 
       - name: Modify docusaurus.config.js
         run: |
+          cd test2
           sed -i 's|baseUrl: '\''\/test2\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
           
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
