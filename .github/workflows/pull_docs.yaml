@@ -83,5 +83,5 @@ jobs:
         with:
           token: ${{ secrets.PAT }}
           repository: iliasmavridis/test2
-          event-type: preview-docs-pr
+          event-type: preview-docs-pr-dep
           client-payload: '{"pr_number": "${{ github.event.client_payload.pr_number }}"}'

@@ -5,7 +5,7 @@ on:
     branches:
       - main
   repository_dispatch:
-    types: [preview-docs-pr]
+    types: [preview-docs-pr-dep]
   pull_request:
     types: [closed]
 
@@ -93,7 +93,7 @@ jobs:
                                "👉 Preview this PR at: " + preview_url + ".";
 
             await github.rest.issues.createComment({
-              issue_number: pr_number,
+              issue_number: ${pr_number},
               owner: process.env.REPO_OWNER,
               repo: process.env.REPO_NAME,
               body: commentBody
