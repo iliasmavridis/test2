@@ -17,7 +17,7 @@ jobs:
         name: "Checkout test"
         with:
           fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
           repository: iliasmavridis/test
           path: test
           ref: ${{ github.event.client_payload.sha || 'main' }} # If it is a preview build, use the provided SHA if, if no SHA is provided, use 'main'
@@ -26,7 +26,7 @@ jobs:
         name: "Checkout test-website"
         with:
           fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.GITHUB_TOKEN }} # explicit token needed to trigger follow-up deployment workflow
+          token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
           path: test2
 
       - name: Copy Content Except static
