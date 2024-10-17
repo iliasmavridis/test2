@@ -29,36 +29,24 @@ jobs:
           token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
           path: test2
 
-#      - name: Configure deployment settings
-#        id: deploy-type
-##        run: |
-#          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
-#            echo "type=preview" >> $GITHUB_OUTPUT
-#            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
-#          else
-#            echo "type=production" >> $GITHUB_OUTPUT
-#            echo "base_url=/" >> $GITHUB_OUTPUT
-#          fi
-
-
-      - name: Determine build type
-        id: build-type
+      - name: Configure deployment settings
+        id: deploy-type
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event.pull_request.merged }}" == "true" ]]; then
-            echo "type=production" >> $GITHUB_OUTPUT
-            echo "base_url=/test2/" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event.action }}" == "preview-docs-pr" ]]; then
+            echo "type=preview" >> $GITHUB_OUTPUT
+            echo "base_url=/pr-preview-${{ github.event.client_payload.pr_number }}/" >> $GITHUB_OUTPUT
           else
-            echo "type=staging" >> $GITHUB_OUTPUT
-            echo "base_url=/test2/pr-preview-${{ github.event.number }}/" >> $GITHUB_OUTPUT
+            echo "type=production" >> $GITHUB_OUTPUT
+            echo "base_url=/" >> $GITHUB_OUTPUT
           fi
 
       - name: Modify docusaurus.config.js for preview
-        if: steps.build-type.outputs.type == 'preview'
+        if: steps.deploy-type.outputs.type == 'preview'
         run: |
           cd test2
           if [ -z "$(git status --porcelain)"  ]; then
             echo 'No Changes to Commit'          
-            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
+            sed -i 's|baseUrl: '\''\/|baseUrl: '\''${{ steps.deploy-type.outputs.base_url }}|' docusaurus.config.js
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
               announcementBar: {\
@@ -75,7 +63,7 @@ jobs:
           fi
 
       - name: Trigger deployment workflow
-        if: steps.build-type.outputs.type == 'preview'
+        if: steps.deploy-type.outputs.type == 'preview'
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.PAT }}
