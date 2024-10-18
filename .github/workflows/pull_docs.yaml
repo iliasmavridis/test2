@@ -147,6 +147,7 @@ jobs:
           user_email: '41898282+github-actions[bot]@users.noreply.github.com'
 
       - name: Comment on PR in test
+        if: steps.build-type.outputs.type == 'staging'      
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PAT }}
@@ -171,7 +172,7 @@ jobs:
 
 
       - name: Cleanup PR preview
-        if: github.event_name == 'push'
+        if: steps.build-type.outputs.type == 'production'
         env:
           GH_TOKEN: ${{ secrets.PAT }}
         run: |
