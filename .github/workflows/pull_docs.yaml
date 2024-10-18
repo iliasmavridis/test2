@@ -82,14 +82,14 @@ jobs:
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
-          announcementBar: {\
-          id: '\''staging-environment'\'',\
-          content:\
-            '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
-          backgroundColor: '\''#ffcc00'\'',\
-          textColor: '\''#000000'\'',\
-          isCloseable: false,\
-          },
+              announcementBar: {\
+              id: '\''staging-environment'\'',\
+              content:\
+                '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
+              backgroundColor: '\''#ffcc00'\'',\
+              textColor: '\''#000000'\'',\
+              isCloseable: false,\
+              },
             }' docusaurus.config.js
           else
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
