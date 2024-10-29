@@ -60,15 +60,25 @@ jobs:
         run: |
           # Clear and create the PR preview directory
           rm -rf ./test2/website
-          mkdir -p ./test2/website
+          mkdir -p ./test2/website/docs
           
-          # Copy content from test repo to website directory
-          cp -r ./test/docs/* ./test2/website/
+          # Copy Docusaurus configuration files and dependencies
+          cp -r ./test2/docusaurus.config.js ./test2/website/
+          cp -r ./test2/package.json ./test2/website/
+          cp -r ./test2/package-lock.json ./test2/website/
+          cp -r ./test2/sidebars.js ./test2/website/ || true
+          cp -r ./test2/babel.config.js ./test2/website/ || true
+          cp -r ./test2/src ./test2/website/ || true
+          cp -r ./test2/static ./test2/website/ || true
           
-          # Copy Docusaurus configuration files
-          cp ./test2/docusaurus.config.js ./test2/website/
-          cp ./test2/package.json ./test2/website/
-          cp ./test2/package-lock.json ./test2/website/
+          # Copy content from test repo to docs directory
+          cp -r ./test/docs/* ./test2/website/docs/
+          
+          # Debug: List the contents
+          echo "Contents of website directory:"
+          ls -la ./test2/website
+          echo "Contents of docs directory:"
+          ls -la ./test2/website/docs
 
       - name: Modify docusaurus.config.js for environment
         if: steps.build-type.outputs.type == 'staging'
