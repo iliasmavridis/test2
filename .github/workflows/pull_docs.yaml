@@ -213,13 +213,17 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
-          cache-dependency-path: test2/package-lock.json
 
       - name: Install dependencies
-        run: npm install --frozen-lockfile
-        working-directory: ./test2
+        if: steps.build-type.outputs.type == 'staging'
+        run: |
+          cd test2
+          # Create package-lock.json if it doesn't exist
+          [ ! -f package-lock.json ] && npm install --package-lock-only
+          npm ci
 
       - name: Build website
+        if: steps.build-type.outputs.type == 'staging'
         run: npm run build
         working-directory: ./test2
 
