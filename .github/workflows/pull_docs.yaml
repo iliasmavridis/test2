@@ -59,21 +59,17 @@ jobs:
         if: steps.build-type.outputs.type == 'staging'
         run: |
           # Clear destination folder
-          rm -rf ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
-          mkdir -p ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          rm -rf ./test2/pr-preview-${{ github.event.client_payload.pr_number }}
+          mkdir -p ./test2/pr-preview-${{ github.event.client_payload.pr_number }}
           
-          # Copy from test repo's docs folder to test2's pr-preview folder
-          cp -r ./test/docs/* ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/
+          # Copy from test repo's docs folder directly to test2's pr-preview folder
+          cp -r ./test/docs/* ./test2/pr-preview-${{ github.event.client_payload.pr_number }}/
 
       - name: Copy content for production
         if: steps.build-type.outputs.type == 'production'
         run: |
-          # Copy pr-preview content to main docs folder
-          cp -r ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/* ./test2/docs/
-          
-          # Ensure we keep other pr-preview folders
-          mkdir -p ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
-          cp -r ./test2/docs/* ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/
+          # Copy content directly to main docs folder
+          cp -r ./test/docs/* ./test2/docs/
 
       - name: Modify docusaurus.config.js for environment
         run: |
