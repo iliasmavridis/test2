@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+    <channel>
+        <title>Documentation Blog</title>
+        <link>https://iliasmavridis.github.io/test2/pr-preview/32/blog</link>
+        <description>Documentation Blog</description>
+        <lastBuildDate>Tue, 29 Oct 2024 20:37:52 GMT</lastBuildDate>
+        <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <language>en</language>
+        <item>
+            <title><![CDATA[index]]></title>
+            <link>https://iliasmavridis.github.io/test2/pr-preview/32/blog/index</link>
+            <guid>https://iliasmavridis.github.io/test2/pr-preview/32/blog/index</guid>
+            <pubDate>Tue, 29 Oct 2024 20:37:52 GMT</pubDate>
+            <content:encoded><![CDATA[<p>---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.</p>]]></content:encoded>
+        </item>
+    </channel>
+</rss>
