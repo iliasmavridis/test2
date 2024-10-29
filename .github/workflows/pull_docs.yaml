@@ -61,6 +61,7 @@ jobs:
           # Clear and create the PR preview directory
           rm -rf ./test2/website
           mkdir -p ./test2/website/docs
+          mkdir -p ./test2/website/blog
           
           # Copy Docusaurus configuration files and dependencies
           cp -r ./test2/docusaurus.config.js ./test2/website/
@@ -70,6 +71,9 @@ jobs:
           cp -r ./test2/babel.config.js ./test2/website/ || true
           cp -r ./test2/src ./test2/website/ || true
           cp -r ./test2/static ./test2/website/ || true
+          
+          # Create a minimal blog index to prevent broken links
+          echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > ./test2/website/blog/index.md
           
           # Copy content from test repo to docs directory
           cp -r ./test/docs/* ./test2/website/docs/
