@@ -56,7 +56,7 @@ jobs:
           git checkout -b pr-${{ github.event.client_payload.pr_number }}
           git push -u origin pr-${{ github.event.client_payload.pr_number }} || true
 
-      # For production: merge PR branch content to main
+      # For production: merge PR branch content to main and update gh-pages
       - name: Handle production deployment
         if: steps.build-type.outputs.type == 'production'
         run: |
@@ -67,30 +67,88 @@ jobs:
           
           # Fetch all branches
           git fetch origin
+          git fetch origin gh-pages:gh-pages
           
           # Get PR number from the branch name
           PR_BRANCH="pr-${{ github.event.client_payload.pr_number }}"
+          PR_NUMBER="${{ github.event.client_payload.pr_number }}"
           echo "Processing production deployment for ${PR_BRANCH}"
           
           # Checkout main branch
           git checkout main
           
-          # Copy content from PR branch
-          git checkout ${PR_BRANCH} -- docs/ || true
+          # Create backup directory
+          mkdir -p backup
           
-          # Create docs directory if it doesn't exist
+          # Backup existing files if they exist
+          [ -f sidebars.js ] && cp sidebars.js backup/ || true
+          [ -f babel.config.js ] && cp babel.config.js backup/ || true
+          [ -d src ] && cp -r src backup/ || true
+          [ -d static ] && cp -r static backup/ || true
+          
+          # Create necessary directories
           mkdir -p docs
+          mkdir -p src/css
+          mkdir -p static
           
-          # Add and commit changes
-          git add docs/
-          git commit -m "Merge documentation changes from PR #${{ github.event.client_payload.pr_number }}" || echo "No changes to commit"
-          git push origin main || echo "No changes to push"
+          # Copy content from PR branch
+          git checkout ${PR_BRANCH} -- docs/ || echo "No docs directory in PR branch"
+          git checkout ${PR_BRANCH} -- package.json || echo "No package.json in PR branch"
+          git checkout ${PR_BRANCH} -- docusaurus.config.js || echo "No docusaurus.config.js in PR branch"
           
-          # Delete the PR branch both locally and remotely
+          # Restore backed up files
+          [ -f backup/sidebars.js ] && cp backup/sidebars.js ./ || true
+          [ -f backup/babel.config.js ] && cp backup/babel.config.js ./ || true
+          [ -d backup/src ] && cp -r backup/src/* src/ || true
+          [ -d backup/static ] && cp -r backup/static/* static/ || true
+          rm -rf backup
+          
+          # Add and commit changes to main
+          git add .
+          git commit -m "Merge documentation changes from PR #${PR_NUMBER}" || echo "No changes to commit"
+          git push origin main
+          
+          # Build the documentation for production
+          echo "Building documentation for production..."
+          
+          # Update docusaurus.config.js for production
+          sed -i "s|baseUrl: '.*'|baseUrl: '/test2/'|" docusaurus.config.js
+          sed -i '/announcementBar/,/},/d' docusaurus.config.js
+          
+          # Install dependencies and build
+          npm install
+          npm run build
+          
+          # Switch to gh-pages branch
+          git checkout gh-pages
+          
+          # Clean old files but keep the pr-preview directory temporarily
+          mkdir -p pr-preview-temp
+          [ -d pr-preview ] && cp -r pr-preview pr-preview-temp/
+          
+          # Remove all files except .git and the temporary directory
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'pr-preview-temp' -exec rm -rf {} +
+          
+          # Copy the new build
+          cp -r build/* .
+          
+          # Restore pr-preview directory but remove the current PR's preview
+          [ -d pr-preview-temp/pr-preview ] && \
+            cp -r pr-preview-temp/pr-preview . && \
+            rm -rf pr-preview/${PR_NUMBER}
+          rm -rf pr-preview-temp
+          
+          # Commit and push changes to gh-pages
+          git add .
+          git commit -m "Deploy documentation from PR #${PR_NUMBER}" || echo "No changes to commit"
+          git push origin gh-pages
+          
+          # Switch back to main and delete the PR branch
+          git checkout main
           git branch -D ${PR_BRANCH} || true
           git push origin --delete ${PR_BRANCH} || true
           
-          echo "Successfully processed production deployment"
+          echo "Successfully merged docs, updated gh-pages, and cleaned up PR branch and preview"
 
       # Set up directory structure for staging
       - name: Set up directory structure (Staging)
@@ -249,23 +307,26 @@ jobs:
 
       # Install dependencies and build
       - uses: actions/setup-node@v4
-        if: steps.build-type.outputs.type == 'staging'
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Install dependencies and build (Staging)
         if: steps.build-type.outputs.type == 'staging'
         run: |
           cd test2
           echo "Installing dependencies..."
           npm install
-          echo "Dependencies installed successfully"
+          echo "Building website for staging..."
+          npm run build
+          echo "Website built successfully"
 
-      - name: Build website
-        if: steps.build-type.outputs.type == 'staging'
+      - name: Install dependencies and build (Production)
+        if: steps.build-type.outputs.type == 'production'
         run: |
           cd test2
-          echo "Building website..."
+          echo "Installing dependencies..."
+          npm install
+          echo "Building website for production..."
           npm run build
           echo "Website built successfully"
 
@@ -287,6 +348,20 @@ jobs:
           publish_dir: ./test2/build
           publish_branch: gh-pages
           destination_dir: pr-preview/${{ github.event.client_payload.pr_number }}
+          repository: iliasmavridis/test2
+          user_name: 'github-actions[test]'
+          user_email: 'test@noreply.github.com'
+
+      # Deploy the build for production
+      - name: Deploy to GitHub Pages (Production)
+        if: steps.build-type.outputs.type == 'production'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.PAT }}
+          publish_dir: ./test2/build
+          publish_branch: gh-pages
+          keep_files: true
+          destination_dir: .
           repository: iliasmavridis/test2
           user_name: 'github-actions[test]'
           user_email: 'test@noreply.github.com'
