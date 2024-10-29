@@ -1,0 +1,16 @@
+{
+  "title": "Tutorial - Basics",
+  "description": "5 minutes to learn the most important Docusaurus concepts.",
+  "slug": "/category/tutorial---basics",
+  "permalink": "/test2/pr-preview/44/category/tutorial---basics",
+  "navigation": {
+    "previous": {
+      "title": "Tutorial Introgg",
+      "permalink": "/test2/pr-preview/44/intro"
+    },
+    "next": {
+      "title": "Create a Page",
+      "permalink": "/test2/pr-preview/44/tutorial-basics/create-a-page"
+    }
+  }
+}
