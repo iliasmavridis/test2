@@ -1,14 +1,11 @@
-name: Pull docs from test repo
+name: Deploy to GitHub Pages
+
 on:
   repository_dispatch:
     types: [docs-updated-on-main, preview-docs-pr]
 
-
 env:
-  # Verified available memory within the pipeline which was around 6GB usable memory
-  # node limits memory to 2GB so we increased it to use the available memory within the pipeline
   NODE_OPTIONS: --max-old-space-size=5500
-
 
 jobs:
   build-and-deploy:
@@ -17,40 +14,21 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout test
+      - name: Checkout test repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.PAT }}
+          fetch-depth: 0
           repository: iliasmavridis/test
           path: test
-          ref: ${{ github.event.client_payload.sha || 'main' }} # If it is a preview build, use the provided SHA if, if no SHA is provided, use 'main'
-
+          ref: ${{ github.event.client_payload.sha || 'main' }}
 
       - uses: actions/checkout@v3
         name: "Checkout test2"
         with:
-          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
-          token: ${{ secrets.PAT }} # explicit token needed to trigger follow-up deployment workflow
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: iliasmavridis/test2
           path: test2
-
-
-      - name: Copy Content Except static
-        run: |
-          rm -r ./test2/docs/*
-          find ./test/docs/ -mindepth 1 -maxdepth 1 \
-            ! -name 'static' \
-            -exec cp -r {} ./test2/docs/ \;
-        continue-on-error: false
-
-      - name: Copy static
-        run: |
-          mkdir -p ./test2/static
-          rm -Rf ./test2/static/*
-          cp -r ./test/docs/static/* ./test2/static/
-        continue-on-error: false
-
 
       - name: Determine build type
         id: build-type
@@ -66,36 +44,49 @@ jobs:
             exit 1
           fi
 
-      - name: Debug Build Type
+      # Copy content based on build type
+      - name: Copy content for staging
+        if: steps.build-type.outputs.type == 'staging'
         run: |
-          echo "Build type: ${{ steps.build-type.outputs.type }}"
-          echo "Base URL: ${{ steps.build-type.outputs.base_url }}"
-          echo "Event name: ${{ github.event_name }}"
-          echo "PR merged: ${{ github.event.pull_request.merged }}"
+          # Clear destination folder
+          rm -rf ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          mkdir -p ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          
+          # Copy from test repo's docs folder to test2's pr-preview folder
+          cp -r ./test/docs/* ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/
 
-      - name: Modify docusaurus.config.js
+      - name: Copy content for production
+        if: steps.build-type.outputs.type == 'production'
+        run: |
+          # Copy pr-preview content to main docs folder
+          cp -r ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/* ./test2/docs/
+          
+          # Ensure we keep other pr-preview folders
+          mkdir -p ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          cp -r ./test2/docs/* ./test2/docs/pr-preview-${{ github.event.client_payload.pr_number }}/
+
+      - name: Modify docusaurus.config.js for staging environment
         run: |
           cd test2
-          pwd
           sed -i 's|baseUrl: '\''\/test2\/|baseUrl: '\''${{ steps.build-type.outputs.base_url }}|' docusaurus.config.js
+          
+          sed -i '/darkTheme: prismThemes.dracula/,/^      }/{/^      }/s/$/,/}' docusaurus.config.js
           
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
             sed -i '/themeConfig:/,/^    }),/ {
               /^    }),/i\
               announcementBar: {\
-              id: '\''staging-environment'\'',\
-              content:\
-                '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.number }}. Changes may not be final.'\'',\
-              backgroundColor: '\''#ffcc00'\'',\
-              textColor: '\''#000000'\'',\
-              isCloseable: false,\
+                id: '\''staging-environment'\'',\
+                content:\
+                  '\''⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>'\'',\
+                backgroundColor: '\''#ffcc00'\'',\
+                textColor: '\''#000000'\'',\
+                isCloseable: false,\
               },
             }' docusaurus.config.js
           else
             sed -i '/announcementBar:/,/},/d' docusaurus.config.js
           fi
-          ls -l
-
 
       - uses: actions/setup-node@v4
         with:
@@ -111,93 +102,44 @@ jobs:
         run: npm run build
         working-directory: ./test2
 
-      - name: Upload Build Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: test2/build
-
-
-
-
-      - name: Debug PR_NUMBER
-        run: echo "PR_NUMBER is ${{ github.event.client_payload.pr_number }}"
-
-      - name: Deploy Production to GitHub Pages
-        if: steps.build-type.outputs.type == 'production'
-        run: |
-          ls -l
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git clone --single-branch --branch gh-pages "https://x-access-token:${{ secrets.PAT }}@github.com/${{ github.repository }}.git" gh-pages
-          cd gh-pages
-          # Overwrite existing files with new build
-          cp -rf ../test2/build/* .
-          git add .
-          git commit -m "Update production Docusaurus site" || echo "No changes to commit"
-          git push
-
-      - name: Deploy PR Preview
+      - name: Deploy to GitHub Pages (Staging)
         if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.PAT }}
           publish_dir: ./test2/build
-          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
-          user_name: 'github-actions[bot]'
-          user_email: '41898282+github-actions[bot]@users.noreply.github.com'
+          publish_branch: gh-pages
+          destination_dir: docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          repository: iliasmavridis/test2
+          user_name: 'github-actions[test]'
+          user_email: 'test@noreply.github.com'
 
-      - name: Comment on PR in test
-        if: steps.build-type.outputs.type == 'staging'      
+      - name: Deploy to GitHub Pages (Production)
+        if: steps.build-type.outputs.type == 'production'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.PAT }}
+          publish_dir: ./test2/build
+          publish_branch: main
+          destination_dir: docs
+          repository: iliasmavridis/test2
+          user_name: 'github-actions[test]'
+          user_email: 'test@noreply.github.com'
+
+      - name: Comment on PR in test repo
+        if: steps.build-type.outputs.type == 'staging'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PAT }}
           script: |
             const pr_number = ${{ github.event.client_payload.pr_number }};
-
-            if (!pr_number) {
-              throw new Error('PR number not provided!');
-            }
-
-            const preview_url = `https://iliasmavridis.github.io/test2/pr-preview-${pr_number}`;
+            const preview_url = `https://klutch.io/docs/pr-preview-${pr_number}`;
             const commentBody = "📝 This PR updates the documentation.\n\n" +
                               "👉 Preview this PR at: " + preview_url + " .";
 
             await github.rest.issues.createComment({
               issue_number: parseInt(pr_number),
-              owner: 'iliasmavridis',
+              owner: 'anynines',
               repo: 'test',
               body: commentBody
             });
-
-
-
-      - name: Cleanup PR preview
-        if: steps.build-type.outputs.type == 'production'
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          
-          if [ -d "gh-pages" ]; then
-            cd gh-pages
-            git pull origin gh-pages
-          else
-            git clone --single-branch --branch gh-pages https://${{ secrets.PAT }}@github.com/${{ github.repository }}.git gh-pages
-            cd gh-pages
-          fi
-          
-          if [ -d "pr-preview-${{ github.event.client_payload.pr_number }}" ]; then
-            git rm -rf "pr-preview-${{ github.event.client_payload.pr_number }}"
-            git commit -m "Remove PR preview for #${{ github.event.client_payload.pr_number }}"
-            git push
-          else
-            echo "Preview folder for PR #${{ github.event.client_payload.pr_number }} not found. Skipping cleanup."
-          fi
-
-      - name: Debug Deployment
-        run: |
-          echo "Deployment completed"
-          echo "Build type: ${{ steps.build-type.outputs.type }}"
-          echo "PR Number: ${{ github.event.client_payload.pr_number }}"
-          echo "Target folder: ${{ steps.build-type.outputs.type == 'production' && 'root' || format('pr-preview-{0}', github.event.client_payload.pr_number) }}"
