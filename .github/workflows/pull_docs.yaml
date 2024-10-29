@@ -54,8 +54,8 @@ jobs:
           git checkout -b pr-${{ github.event.client_payload.pr_number }}
           git push -u origin pr-${{ github.event.client_payload.pr_number }}
 
-      # Set up the directory structure
-      - name: Set up directory structure
+      # Set up the directory structure and configure Docusaurus
+      - name: Set up directory structure and configure Docusaurus
         if: steps.build-type.outputs.type == 'staging'
         run: |
           # Clear and create the PR preview directory
@@ -74,11 +74,67 @@ jobs:
           # Copy content from test repo to docs directory
           cp -r ./test/docs/* ./test2/website/docs/
           
-          # Debug: List the contents
+          # Create a new minimal docusaurus.config.js
+          cat > ./test2/website/docusaurus.config.js << 'EOF'
+          const config = {
+            title: 'Documentation Preview',
+            tagline: 'Preview of documentation changes',
+            url: 'https://iliasmavridis.github.io',
+            baseUrl: '${{ steps.build-type.outputs.base_url }}',
+            onBrokenLinks: 'warn',
+            onBrokenMarkdownLinks: 'warn',
+            favicon: 'img/favicon.ico',
+            organizationName: 'iliasmavridis',
+            projectName: 'test2',
+            
+            presets: [
+              [
+                'classic',
+                {
+                  docs: {
+                    routeBasePath: '/',
+                    sidebarPath: require.resolve('./sidebars.js'),
+                  },
+                  blog: false,
+                  theme: {
+                    customCss: './src/css/custom.css',
+                  },
+                },
+              ],
+            ],
+            
+            themeConfig: {
+              navbar: {
+                title: 'Documentation Preview',
+                items: [
+                  {
+                    type: 'docSidebar',
+                    sidebarId: 'tutorialSidebar',
+                    position: 'left',
+                    label: 'Docs',
+                  },
+                ],
+              },
+              footer: {
+                style: 'dark',
+                links: [],
+                copyright: 'Preview Build',
+              },
+              announcementBar: {
+                id: 'preview_build',
+                content: '⚠️ This is a <strong>Preview Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final.',
+                backgroundColor: '#ffcc00',
+                textColor: '#000000',
+                isCloseable: false,
+              },
+            },
+          };
+          
+          module.exports = config;
+          EOF
+          
           echo "Contents of website directory:"
           ls -la ./test2/website
-          echo "Contents of docs directory:"
-          ls -la ./test2/website/docs
 
       - name: Modify docusaurus.config.js for environment
         if: steps.build-type.outputs.type == 'staging'
