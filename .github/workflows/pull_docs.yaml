@@ -92,51 +92,77 @@ jobs:
         run: |
           cd test2/website
           
-          # Add onBrokenLinks configuration and baseUrl
-          sed -i '/module.exports = {/a \
-            onBrokenLinks: "ignore",\
-            onBrokenMarkdownLinks: "ignore",' docusaurus.config.js
+          # Create temporary file with modified config
+          cat > temp_config.js << 'EOF'
+          // @ts-check
+          // Note: type annotations allow type checking and IDEs autocompletion
           
-          # Replace baseUrl
-          sed -i "s|baseUrl: '/test2/'|baseUrl: '${{ steps.build-type.outputs.base_url }}'|" docusaurus.config.js
+          const config = {
+            title: 'Documentation',
+            tagline: 'Documentation',
+            favicon: 'img/favicon.ico',
+            url: 'https://iliasmavridis.github.io',
+            baseUrl: '${{ steps.build-type.outputs.base_url }}',
+            onBrokenLinks: 'ignore',
+            onBrokenMarkdownLinks: 'ignore',
+            organizationName: 'iliasmavridis',
+            projectName: 'test2',
+            
+            presets: [
+              [
+                'classic',
+                /** @type {import('@docusaurus/preset-classic').Options} */
+                ({
+                  docs: {
+                    sidebarPath: require.resolve('./sidebars.js'),
+                    routeBasePath: '/',
+                  },
+                  blog: {
+                    showReadingTime: false,
+                    blogTitle: ' ',
+                    blogDescription: ' ',
+                  },
+                  theme: {
+                    customCss: require.resolve('./src/css/custom.css'),
+                  },
+                }),
+              ],
+            ],
+            
+            themeConfig:
+              /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+              ({
+                navbar: {
+                  title: 'Documentation',
+                  items: [
+                    {
+                      type: 'docSidebar',
+                      sidebarId: 'tutorialSidebar',
+                      position: 'left',
+                      label: 'Docs',
+                    },
+                  ],
+                },
+                footer: {
+                  style: 'dark',
+                  links: [],
+                  copyright: '© Documentation Preview',
+                },
+                announcementBar: {
+                  id: 'staging-environment',
+                  content: '⚠️ This is a <strong>Preview Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>',
+                  backgroundColor: '#ffcc00',
+                  textColor: '#000000',
+                  isCloseable: false,
+                },
+              }),
+          };
           
-          # Modify presets to hide blog but keep minimal functionality
-          sed -i '/presets:/,/\]/c\
-            presets: [\
-              [\
-                "classic",\
-                {\
-                  docs: {\
-                    sidebarPath: require.resolve("./sidebars.js"),\
-                    routeBasePath: "/",\
-                  },\
-                  blog: {\
-                    showReadingTime: false,\
-                    blogTitle: " ",\
-                    blogDescription: " ",\
-                  },\
-                  theme: {\
-                    customCss: require.resolve("./src/css/custom.css"),\
-                  },\
-                },\
-              ],\
-            ],' docusaurus.config.js
+          module.exports = config;
+          EOF
           
-          # Remove blog from navbar
-          sed -i '/items:/,/]/{ /blog/d }' docusaurus.config.js
-          
-          # Add announcement bar
-          sed -i '/themeConfig: {/a \
-            announcementBar: {\
-              id: "staging-environment",\
-              content: "⚠️ This is a <strong>Preview Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>",\
-              backgroundColor: "#ffcc00",\
-              textColor: "#000000",\
-              isCloseable: false,\
-            },' docusaurus.config.js
-          
-          # Remove blog from footer if exists
-          sed -i '/footer:/,/}/{ /blog/d }' docusaurus.config.js
+          # Replace the original config with our modified version
+          mv temp_config.js docusaurus.config.js
           
           echo "Modified docusaurus.config.js content:"
           cat docusaurus.config.js
