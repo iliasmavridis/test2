@@ -65,90 +65,97 @@ jobs:
           git config --global user.name 'github-actions[test]'
           git config --global user.email 'test@noreply.github.com'
           
-          # Fetch all branches
-          git fetch origin
+          # Fetch all branches and ensure we have the latest
+          git fetch --all
           git fetch origin gh-pages:gh-pages
           
-          # Get PR number from the branch name
+          echo "Current branches:"
+          git branch -a
+          
+          # Ensure PR branch exists and get its name
           PR_BRANCH="pr-${{ github.event.client_payload.pr_number }}"
           PR_NUMBER="${{ github.event.client_payload.pr_number }}"
-          echo "Processing production deployment for ${PR_BRANCH}"
+          
+          echo "Checking for PR branch: ${PR_BRANCH}"
+          if ! git show-ref --quiet refs/remotes/origin/${PR_BRANCH}; then
+            echo "PR branch ${PR_BRANCH} not found!"
+            exit 1
+          fi
+          
+          # Checkout PR branch first to get its content
+          git checkout ${PR_BRANCH}
+          
+          # Store PR branch content
+          echo "Storing PR branch content..."
+          mkdir -p ../pr_content
+          cp -r * ../pr_content/ || true
           
           # Checkout main branch
           git checkout main
           
-          # Create backup directory
-          mkdir -p backup
+          # Copy content from PR backup
+          echo "Copying content to main..."
+          cp -r ../pr_content/* ./ || true
           
-          # Backup existing files if they exist
-          [ -f sidebars.js ] && cp sidebars.js backup/ || true
-          [ -f babel.config.js ] && cp babel.config.js backup/ || true
-          [ -d src ] && cp -r src backup/ || true
-          [ -d static ] && cp -r static backup/ || true
-          
-          # Create necessary directories
-          mkdir -p docs
-          mkdir -p src/css
-          mkdir -p static
-          
-          # Copy content from PR branch
-          git checkout ${PR_BRANCH} -- docs/ || echo "No docs directory in PR branch"
-          git checkout ${PR_BRANCH} -- package.json || echo "No package.json in PR branch"
-          git checkout ${PR_BRANCH} -- docusaurus.config.js || echo "No docusaurus.config.js in PR branch"
-          
-          # Restore backed up files
-          [ -f backup/sidebars.js ] && cp backup/sidebars.js ./ || true
-          [ -f backup/babel.config.js ] && cp backup/babel.config.js ./ || true
-          [ -d backup/src ] && cp -r backup/src/* src/ || true
-          [ -d backup/static ] && cp -r backup/static/* static/ || true
-          rm -rf backup
+          # Update docusaurus.config.js for production
+          echo "Updating docusaurus configuration..."
+          sed -i "s|baseUrl: '.*'|baseUrl: '/test2/'|" docusaurus.config.js
+          sed -i '/announcementBar/,/},/d' docusaurus.config.js
           
           # Add and commit changes to main
+          echo "Committing changes to main..."
           git add .
           git commit -m "Merge documentation changes from PR #${PR_NUMBER}" || echo "No changes to commit"
           git push origin main
           
           # Build the documentation for production
-          echo "Building documentation for production..."
-          
-          # Update docusaurus.config.js for production
-          sed -i "s|baseUrl: '.*'|baseUrl: '/test2/'|" docusaurus.config.js
-          sed -i '/announcementBar/,/},/d' docusaurus.config.js
-          
-          # Install dependencies and build
+          echo "Building documentation..."
           npm install
           npm run build
           
-          # Switch to gh-pages branch
+          # Verify build directory exists
+          if [ ! -d "build" ]; then
+            echo "Build directory not found!"
+            exit 1
+          fi
+          
+          # Switch to gh-pages branch and update content
+          echo "Updating gh-pages branch..."
           git checkout gh-pages
           
-          # Clean old files but keep the pr-preview directory temporarily
-          mkdir -p pr-preview-temp
-          [ -d pr-preview ] && cp -r pr-preview pr-preview-temp/
+          # Preserve pr-preview directory
+          mkdir -p ../pr-preview-backup
+          if [ -d "pr-preview" ]; then
+            cp -r pr-preview ../pr-preview-backup/
+          fi
           
-          # Remove all files except .git and the temporary directory
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'pr-preview-temp' -exec rm -rf {} +
+          # Clean current directory except .git
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
           
-          # Copy the new build
+          # Copy new build
+          echo "Copying new build..."
           cp -r build/* .
+          rm -rf build
           
-          # Restore pr-preview directory but remove the current PR's preview
-          [ -d pr-preview-temp/pr-preview ] && \
-            cp -r pr-preview-temp/pr-preview . && \
-            rm -rf pr-preview/${PR_NUMBER}
-          rm -rf pr-preview-temp
+          # Restore pr-preview directory but remove current PR's preview
+          if [ -d "../pr-preview-backup/pr-preview" ]; then
+            mkdir -p pr-preview
+            cp -r ../pr-preview-backup/pr-preview/* pr-preview/ || true
+            rm -rf pr-preview/${PR_NUMBER} || true
+          fi
           
           # Commit and push changes to gh-pages
+          echo "Committing changes to gh-pages..."
           git add .
           git commit -m "Deploy documentation from PR #${PR_NUMBER}" || echo "No changes to commit"
           git push origin gh-pages
           
-          # Switch back to main and delete the PR branch
+          # Switch back to main and clean up
           git checkout main
-          git branch -D ${PR_BRANCH} || true
-          git push origin --delete ${PR_BRANCH} || true
+          echo "Cleaning up PR branch..."
+          git push origin --delete ${PR_BRANCH} || echo "Could not delete remote branch"
           
-          echo "Successfully merged docs, updated gh-pages, and cleaned up PR branch and preview"
+          echo "Production deployment completed"
 
       # Set up directory structure for staging
       - name: Set up directory structure (Staging)
