@@ -76,10 +76,10 @@ jobs:
           git checkout main
           
           # Copy content from PR branch
-          git checkout ${PR_BRANCH} -- website/docs/
+          git checkout ${PR_BRANCH} -- docs/
           
           # Add and commit changes
-          git add website/docs/
+          git add docs/
           git commit -m "Merge documentation changes from PR #${{ github.event.client_payload.pr_number }}"
           git push origin main
           
@@ -89,44 +89,40 @@ jobs:
           
           echo "Successfully merged docs and cleaned up PR branch"
 
-      # Set up the directory structure
-      - name: Set up directory structure
+      # Set up directory structure and copy files for staging
+      - name: Set up directory structure (Staging)
+        if: steps.build-type.outputs.type == 'staging'
         run: |
-          if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
-            # Clear and create directories for staging
-            rm -rf ./test2/website
-            mkdir -p ./test2/website/docs
-            mkdir -p ./test2/website/blog
-            
-            # Copy docs content from the PR in test repo
-            echo "Copying content from test repo PR branch..."
-            cp -r ./test/docs/* ./test2/website/docs/
-            
-            # Create minimal blog index
-            echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > ./test2/website/blog/index.md
-          else
-            # For production, create directories if they don't exist
-            mkdir -p ./test2/website/docs
-            
-            # Copy content from test repo to docs directory
-            echo "Copying content for production deployment..."
-            cp -r ./test/docs/* ./test2/website/docs/
-          fi
+          cd test2
+          # Backup existing files we want to keep
+          mkdir -p backup
+          [ -f sidebars.js ] && cp sidebars.js backup/
+          [ -f babel.config.js ] && cp babel.config.js backup/
+          [ -d src ] && cp -r src backup/
+          [ -d static ] && cp -r static backup/
           
-          # Copy Docusaurus config files
-          cp -r ./test2/docusaurus.config.js ./test2/website/ || true
-          cp -r ./test2/package.json ./test2/website/ || true
-          cp -r ./test2/package-lock.json ./test2/website/ || true
-          cp -r ./test2/sidebars.js ./test2/website/ || true
-          cp -r ./test2/babel.config.js ./test2/website/ || true
-          cp -r ./test2/src ./test2/website/ || true
-          cp -r ./test2/static ./test2/website/ || true
+          # Clean directory while preserving .git
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'backup' -exec rm -rf {} +
           
-          echo "Directory contents after setup:"
-          ls -la ./test2/website
+          # Copy docs content from test repo
+          cp -r ../test/docs/* docs/
+          
+          # Restore backed up files
+          [ -f backup/sidebars.js ] && cp backup/sidebars.js ./
+          [ -f backup/babel.config.js ] && cp backup/babel.config.js ./
+          [ -d backup/src ] && cp -r backup/src ./
+          [ -d backup/static ] && cp -r backup/static ./
+          rm -rf backup
+          
+          # Create minimal blog directory
+          mkdir -p blog
+          echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > blog/index.md
+          
+          echo "Directory contents:"
+          ls -la
 
-      # Modify docusaurus.config.js for environment
-      - name: Modify docusaurus.config.js for environment
+      # Configure Docusaurus for staging/production
+      - name: Configure Docusaurus
         run: |
           cd test2
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
@@ -163,39 +159,7 @@ jobs:
           };
           module.exports = config;
           EOF
-                    else
-                      cat << \EOF > docusaurus.config.js
-          const config = {
-            title: 'Documentation',
-            tagline: 'Documentation',
-            favicon: 'img/favicon.ico',
-            url: 'https://iliasmavridis.github.io',
-            baseUrl: '${{ steps.build-type.outputs.base_url }}',
-            onBrokenLinks: 'ignore',
-            onBrokenMarkdownLinks: 'ignore',
-            organizationName: 'iliasmavridis',
-            projectName: 'test2',
-            presets: [['classic',{docs:{sidebarPath:require.resolve('./sidebars.js'),routeBasePath:'/'},blog:{showReadingTime:false,blogTitle:' ',blogDescription:' '},theme:{customCss:require.resolve('./src/css/custom.css')}}]],
-            themeConfig: {
-              navbar: {
-                title: 'Documentation',
-                items: [{type:'docSidebar',sidebarId:'tutorialSidebar',position:'left',label:'Docs'}]
-              },
-              footer: {
-                style: 'dark',
-                links: [],
-                copyright: '© Documentation'
-              }
-            }
-          };
-          module.exports = config;
-          EOF
-                    fi
-                    
-                    # Install dependencies if package.json exists, otherwise create it
-                    if [ ! -f "package.json" ]; then
-                      # Create package.json with Docusaurus dependencies
-                      cat << \EOF > package.json
+                    cat << \EOF > package.json
           {
             "name": "documentation",
             "version": "0.0.0",
@@ -238,9 +202,6 @@ jobs:
           }
           EOF
           fi
-          
-          echo "Modified docusaurus.config.js content:"
-          cat docusaurus.config.js
 
       # Install dependencies and build
       - uses: actions/setup-node@v4
@@ -266,12 +227,13 @@ jobs:
           git commit -m "Update documentation for PR #${{ github.event.client_payload.pr_number }}"
           git push origin pr-${{ github.event.client_payload.pr_number }}
 
+      # Deploy the build
       - name: Deploy to GitHub Pages (Staging)
         if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.PAT }}
-          publish_dir: ./test2/website/build
+          publish_dir: ./test2/build
           publish_branch: gh-pages
           destination_dir: pr-preview/${{ github.event.client_payload.pr_number }}
           repository: iliasmavridis/test2
