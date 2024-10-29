@@ -104,8 +104,12 @@ jobs:
           # Clean directory while preserving .git
           find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name 'backup' -exec rm -rf {} +
           
+          # Create necessary directories
+          mkdir -p docs
+          mkdir -p blog
+          
           # Copy docs content from test repo
-          cp -r ../test/docs/* docs/
+          cp -r ../test/docs/* ./docs/
           
           # Restore backed up files
           [ -f backup/sidebars.js ] && cp backup/sidebars.js ./
@@ -114,12 +118,13 @@ jobs:
           [ -d backup/static ] && cp -r backup/static ./
           rm -rf backup
           
-          # Create minimal blog directory
-          mkdir -p blog
+          # Create minimal blog index
           echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > blog/index.md
           
-          echo "Directory contents:"
+          echo "Directory structure:"
           ls -la
+          echo "Docs content:"
+          ls -la docs/
 
       # Configure Docusaurus for staging/production
       - name: Configure Docusaurus
