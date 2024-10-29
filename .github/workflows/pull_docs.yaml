@@ -72,23 +72,15 @@ jobs:
           sed -i "s|baseUrl: '/test2/'|baseUrl: '${{ steps.build-type.outputs.base_url }}'|" docusaurus.config.js
           
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
-            # Create a temporary file with the announcement bar configuration
-            cat > temp_config.js << 'EOFJS'
-          const config = require('./docusaurus.config.js');
-
-          config.themeConfig.announcementBar = {
-            id: 'staging-environment',
-            content: '⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>',
-            backgroundColor: '#ffcc00',
-            textColor: '#000000',
-            isCloseable: false,
-          };
-
-          module.exports = config;
-          EOFJS
-                      
-            # Replace the original config file
-            mv temp_config.js docusaurus.config.js
+            # Add announcement bar before the closing of themeConfig
+            sed -i '/themeConfig: {/a \
+              announcementBar: {\
+                id: "staging-environment",\
+                content: "⚠️ This is a <strong>Staging Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>",\
+                backgroundColor: "#ffcc00",\
+                textColor: "#000000",\
+                isCloseable: false,\
+              },' docusaurus.config.js
           fi
 
       - uses: actions/setup-node@v4
