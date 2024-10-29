@@ -44,6 +44,16 @@ jobs:
             exit 1
           fi
 
+      # Create and switch to PR-specific branch for staging
+      - name: Create PR branch (Staging)
+        if: steps.build-type.outputs.type == 'staging'
+        run: |
+          cd test2
+          git config --global user.name 'github-actions[test]'
+          git config --global user.email 'test@noreply.github.com'
+          git checkout -b pr-${{ github.event.client_payload.pr_number }}
+          git push -u origin pr-${{ github.event.client_payload.pr_number }}
+
       # Copy content based on build type
       - name: Copy content for staging
         if: steps.build-type.outputs.type == 'staging'
@@ -97,6 +107,15 @@ jobs:
         run: npm run build
         working-directory: ./test2
 
+      # Commit changes to PR branch (Staging)
+      - name: Commit changes to PR branch
+        if: steps.build-type.outputs.type == 'staging'
+        run: |
+          cd test2
+          git add .
+          git commit -m "Update documentation for PR #${{ github.event.client_payload.pr_number }}"
+          git push origin pr-${{ github.event.client_payload.pr_number }}
+
       - name: Deploy to GitHub Pages (Staging)
         if: steps.build-type.outputs.type == 'staging'
         uses: peaceiris/actions-gh-pages@v3
@@ -104,7 +123,7 @@ jobs:
           github_token: ${{ secrets.PAT }}
           publish_dir: ./test2/build
           publish_branch: gh-pages
-          destination_dir: docs/pr-preview-${{ github.event.client_payload.pr_number }}
+          destination_dir: pr-preview-${{ github.event.client_payload.pr_number }}
           repository: iliasmavridis/test2
           user_name: 'github-actions[test]'
           user_email: 'test@noreply.github.com'
