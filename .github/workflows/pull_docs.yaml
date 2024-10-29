@@ -14,14 +14,16 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # First checkout the test repo with the PR changes
       - name: Checkout test repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           repository: iliasmavridis/test
           path: test
-          ref: ${{ github.event.client_payload.sha || 'main' }}
+          ref: ${{ github.event.client_payload.sha }}
 
+      # Then checkout test2 repo
       - uses: actions/checkout@v3
         name: "Checkout test2"
         with:
@@ -52,18 +54,25 @@ jobs:
           git config --global user.name 'github-actions[test]'
           git config --global user.email 'test@noreply.github.com'
           git checkout -b pr-${{ github.event.client_payload.pr_number }}
-          git push -u origin pr-${{ github.event.client_payload.pr_number }}
+          git push -u origin pr-${{ github.event.client_payload.pr_number }} || true
 
       # Set up the directory structure
       - name: Set up directory structure
         if: steps.build-type.outputs.type == 'staging'
         run: |
-          # Clear and create the PR preview directory
+          # Clear and create directories
           rm -rf ./test2/website
           mkdir -p ./test2/website/docs
           mkdir -p ./test2/website/blog
           
-          # Copy Docusaurus configuration files and dependencies
+          # Copy docs content from the PR in test repo
+          echo "Copying content from test repo PR branch..."
+          cp -r ./test/docs/* ./test2/website/docs/
+          
+          # Create minimal blog index
+          echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > ./test2/website/blog/index.md
+          
+          # Copy Docusaurus config files
           cp -r ./test2/docusaurus.config.js ./test2/website/
           cp -r ./test2/package.json ./test2/website/
           cp -r ./test2/package-lock.json ./test2/website/
@@ -72,22 +81,49 @@ jobs:
           cp -r ./test2/src ./test2/website/ || true
           cp -r ./test2/static ./test2/website/ || true
           
-          # Create a minimal blog index to prevent broken links
-          echo '---\nslug: /\ntitle: Blog\n---\n\nNo blog posts yet.' > ./test2/website/blog/index.md
-          
-          # Copy content from test repo to docs directory
-          cp -r ./test/docs/* ./test2/website/docs/
-          
-          # Debug: List the contents
-          echo "Contents of website directory:"
+          echo "Directory contents after setup:"
           ls -la ./test2/website
+          echo "Docs contents:"
+          ls -la ./test2/website/docs
 
+      # Modify docusaurus.config.js for environment
       - name: Modify docusaurus.config.js for environment
         if: steps.build-type.outputs.type == 'staging'
         run: |
           cd test2/website
-          # Replace baseUrl to point to pr-preview directory
+          
+          # Add onBrokenLinks configuration and baseUrl
+          sed -i '/module.exports = {/a \
+            onBrokenLinks: "ignore",\
+            onBrokenMarkdownLinks: "ignore",' docusaurus.config.js
+          
+          # Replace baseUrl
           sed -i "s|baseUrl: '/test2/'|baseUrl: '${{ steps.build-type.outputs.base_url }}'|" docusaurus.config.js
+          
+          # Modify presets to hide blog but keep minimal functionality
+          sed -i '/presets:/,/\]/c\
+            presets: [\
+              [\
+                "classic",\
+                {\
+                  docs: {\
+                    sidebarPath: require.resolve("./sidebars.js"),\
+                    routeBasePath: "/",\
+                  },\
+                  blog: {\
+                    showReadingTime: false,\
+                    blogTitle: " ",\
+                    blogDescription: " ",\
+                  },\
+                  theme: {\
+                    customCss: require.resolve("./src/css/custom.css"),\
+                  },\
+                },\
+              ],\
+            ],' docusaurus.config.js
+          
+          # Remove blog from navbar
+          sed -i '/items:/,/]/{ /blog/d }' docusaurus.config.js
           
           # Add announcement bar
           sed -i '/themeConfig: {/a \
@@ -98,6 +134,12 @@ jobs:
               textColor: "#000000",\
               isCloseable: false,\
             },' docusaurus.config.js
+          
+          # Remove blog from footer if exists
+          sed -i '/footer:/,/}/{ /blog/d }' docusaurus.config.js
+          
+          echo "Modified docusaurus.config.js content:"
+          cat docusaurus.config.js
 
       # Install dependencies and build
       - uses: actions/setup-node@v4
@@ -107,12 +149,10 @@ jobs:
           cache-dependency-path: test2/website/package-lock.json
 
       - name: Install dependencies
-        if: steps.build-type.outputs.type == 'staging'
         run: npm install --frozen-lockfile
         working-directory: ./test2/website
 
       - name: Build website
-        if: steps.build-type.outputs.type == 'staging'
         run: npm run build
         working-directory: ./test2/website
 
