@@ -128,7 +128,7 @@ jobs:
       # Modify docusaurus.config.js for environment
       - name: Modify docusaurus.config.js for environment
         run: |
-          cd test2/website
+          cd test2
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
             cat << \EOF > docusaurus.config.js
           const config = {
@@ -190,6 +190,53 @@ jobs:
           };
           module.exports = config;
           EOF
+                    fi
+                    
+                    # Install dependencies if package.json exists, otherwise create it
+                    if [ ! -f "package.json" ]; then
+                      # Create package.json with Docusaurus dependencies
+                      cat << \EOF > package.json
+          {
+            "name": "documentation",
+            "version": "0.0.0",
+            "private": true,
+            "scripts": {
+              "docusaurus": "docusaurus",
+              "start": "docusaurus start",
+              "build": "docusaurus build",
+              "swizzle": "docusaurus swizzle",
+              "deploy": "docusaurus deploy",
+              "clear": "docusaurus clear",
+              "serve": "docusaurus serve",
+              "write-translations": "docusaurus write-translations",
+              "write-heading-ids": "docusaurus write-heading-ids"
+            },
+            "dependencies": {
+              "@docusaurus/core": "^3.0.0",
+              "@docusaurus/preset-classic": "^3.0.0",
+              "@mdx-js/react": "^3.0.0",
+              "clsx": "^1.2.1",
+              "prism-react-renderer": "^2.1.0",
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0"
+            },
+            "browserslist": {
+              "production": [
+                ">0.5%",
+                "not dead",
+                "not op_mini all"
+              ],
+              "development": [
+                "last 1 chrome version",
+                "last 1 firefox version",
+                "last 1 safari version"
+              ]
+            },
+            "engines": {
+              "node": ">=18.0"
+            }
+          }
+          EOF
           fi
           
           echo "Modified docusaurus.config.js content:"
@@ -200,15 +247,15 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
-          cache-dependency-path: test2/website/package-lock.json
+          cache-dependency-path: test2/package-lock.json
 
       - name: Install dependencies
         run: npm install --frozen-lockfile
-        working-directory: ./test2/website
+        working-directory: ./test2
 
       - name: Build website
         run: npm run build
-        working-directory: ./test2/website
+        working-directory: ./test2
 
       # Commit changes to PR branch
       - name: Commit changes to PR branch
