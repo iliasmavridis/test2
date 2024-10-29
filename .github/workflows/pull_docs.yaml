@@ -128,13 +128,13 @@ jobs:
           github-token: ${{ secrets.PAT }}
           script: |
             const pr_number = ${{ github.event.client_payload.pr_number }};
-            const preview_url = `https://klutch.io/docs/pr-preview-${pr_number}`;
+            const preview_url = `https://iliasmavridis.github.io/test2/pr-preview-${pr_number}`;
             const commentBody = "📝 This PR updates the documentation.\n\n" +
                               "👉 Preview this PR at: " + preview_url + " .";
 
             await github.rest.issues.createComment({
               issue_number: parseInt(pr_number),
-              owner: 'anynines',
+              owner: 'iliasmavridis',
               repo: 'test',
               body: commentBody
             });
