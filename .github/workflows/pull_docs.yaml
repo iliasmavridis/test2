@@ -131,11 +131,8 @@ jobs:
           cd test2/website
           
           if [[ "${{ steps.build-type.outputs.type }}" == "staging" ]]; then
-            # Create temporary file with modified config for staging
-            cat > temp_config.js << 'EOF'
-            // @ts-check
-            // Note: type annotations allow type checking and IDEs autocompletion
-            
+            # Staging configuration
+            cat << 'EOL' > docusaurus.config.js
             const config = {
               title: 'Documentation',
               tagline: 'Documentation',
@@ -146,65 +143,31 @@ jobs:
               onBrokenMarkdownLinks: 'ignore',
               organizationName: 'iliasmavridis',
               projectName: 'test2',
-              
-              presets: [
-                [
-                  'classic',
-                  /** @type {import('@docusaurus/preset-classic').Options} */
-                  ({
-                    docs: {
-                      sidebarPath: require.resolve('./sidebars.js'),
-                      routeBasePath: '/',
-                    },
-                    blog: {
-                      showReadingTime: false,
-                      blogTitle: ' ',
-                      blogDescription: ' ',
-                    },
-                    theme: {
-                      customCss: require.resolve('./src/css/custom.css'),
-                    },
-                  }),
-                ],
-              ],
-              
-              themeConfig:
-                /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-                ({
-                  navbar: {
-                    title: 'Documentation',
-                    items: [
-                      {
-                        type: 'docSidebar',
-                        sidebarId: 'tutorialSidebar',
-                        position: 'left',
-                        label: 'Docs',
-                      },
-                    ],
-                  },
-                  footer: {
-                    style: 'dark',
-                    links: [],
-                    copyright: '© Documentation Preview',
-                  },
-                  announcementBar: {
-                    id: 'staging-environment',
-                    content: '⚠️ This is a <strong>Preview Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>',
-                    backgroundColor: '#ffcc00',
-                    textColor: '#000000',
-                    isCloseable: false,
-                  },
-                }),
+              presets: [['classic',{docs:{sidebarPath:require.resolve('./sidebars.js'),routeBasePath:'/'},blog:{showReadingTime:false,blogTitle:' ',blogDescription:' '},theme:{customCss:require.resolve('./src/css/custom.css')}}]],
+              themeConfig: {
+                navbar: {
+                  title: 'Documentation',
+                  items: [{type:'docSidebar',sidebarId:'tutorialSidebar',position:'left',label:'Docs'}]
+                },
+                footer: {
+                  style: 'dark',
+                  links: [],
+                  copyright: '© Documentation Preview'
+                },
+                announcementBar: {
+                  id: 'staging-environment',
+                  content: '⚠️ This is a <strong>Preview Environment</strong> for PR #${{ github.event.client_payload.pr_number }}. Changes may not be final. <strong>Do not use in production.</strong>',
+                  backgroundColor: '#ffcc00',
+                  textColor: '#000000',
+                  isCloseable: false
+                }
+              }
             };
-            
             module.exports = config;
-            EOF
+            EOL
           else
-            # Create temporary file with modified config for production
-            cat > temp_config.js << 'EOF'
-            // @ts-check
-            // Note: type annotations allow type checking and IDEs autocompletion
-            
+            # Production configuration
+            cat << 'EOL' > docusaurus.config.js
             const config = {
               title: 'Documentation',
               tagline: 'Documentation',
@@ -215,56 +178,22 @@ jobs:
               onBrokenMarkdownLinks: 'ignore',
               organizationName: 'iliasmavridis',
               projectName: 'test2',
-              
-              presets: [
-                [
-                  'classic',
-                  /** @type {import('@docusaurus/preset-classic').Options} */
-                  ({
-                    docs: {
-                      sidebarPath: require.resolve('./sidebars.js'),
-                      routeBasePath: '/',
-                    },
-                    blog: {
-                      showReadingTime: false,
-                      blogTitle: ' ',
-                      blogDescription: ' ',
-                    },
-                    theme: {
-                      customCss: require.resolve('./src/css/custom.css'),
-                    },
-                  }),
-                ],
-              ],
-              
-              themeConfig:
-                /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-                ({
-                  navbar: {
-                    title: 'Documentation',
-                    items: [
-                      {
-                        type: 'docSidebar',
-                        sidebarId: 'tutorialSidebar',
-                        position: 'left',
-                        label: 'Docs',
-                      },
-                    ],
-                  },
-                  footer: {
-                    style: 'dark',
-                    links: [],
-                    copyright: '© Documentation',
-                  },
-                }),
+              presets: [['classic',{docs:{sidebarPath:require.resolve('./sidebars.js'),routeBasePath:'/'},blog:{showReadingTime:false,blogTitle:' ',blogDescription:' '},theme:{customCss:require.resolve('./src/css/custom.css')}}]],
+              themeConfig: {
+                navbar: {
+                  title: 'Documentation',
+                  items: [{type:'docSidebar',sidebarId:'tutorialSidebar',position:'left',label:'Docs'}]
+                },
+                footer: {
+                  style: 'dark',
+                  links: [],
+                  copyright: '© Documentation'
+                }
+              }
             };
-            
             module.exports = config;
-            EOF
+            EOL
           fi
-          
-          # Replace the original config with our modified version
-          mv temp_config.js docusaurus.config.js
           
           echo "Modified docusaurus.config.js content:"
           cat docusaurus.config.js
